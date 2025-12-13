@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { locale, currentWorkspaceId, currentWorkspace, theme, effectiveTheme } from '$lib/stores';
+	import {
+		locale,
+		currentWorkspaceId,
+		currentWorkspace,
+		theme,
+		effectiveTheme,
+		loadMessages,
+		setRuntimeLocale,
+		t
+	} from '$lib/stores';
 	import type { Workspace } from '$lib/stores/workspace';
 	import { cn } from '$lib/utils';
 	import { Globe, ChevronDown, LogOut, User, Sun, Moon, Monitor } from 'lucide-svelte';
@@ -7,27 +16,46 @@
 	import { goto } from '$app/navigation';
 	import type { Session } from '@supabase/supabase-js';
 
-	interface Props {
-		session: Session | null;
-		user: { email?: string } | null;
-		workspaces: Workspace[];
-	}
-
 	export let session: Session | null = null;
-	export let user: { email?: string } | null = null;
+	export let user: { email?: string | null } | null = null;
 	export let workspaces: Workspace[] = [];
+	export let languages: Array<{ code: string; name: string; is_rtl: boolean }> = [];
+	export let currentLocale: string = 'en';
 
 	let showWorkspaceMenu = false;
 	let showUserMenu = false;
 	let showThemeMenu = false;
+	let showLanguageMenu = false;
+	let selectedLanguage: { code: string; name: string; is_rtl: boolean } | null = null;
 
-	const languages = [
-		{ code: 'en', label: 'English' },
-		{ code: 'ar', label: 'العربية' }
-	];
+	$: selectedLanguage =
+		languages.find((l) => l.code === $locale) || languages.find((l) => l.code === currentLocale) || null;
 
-	function handleLocaleChange(code: string) {
+	async function handleLocaleChange(code: string) {
+		if (!session) return;
+		if (!code) return;
+
+		// Persist locale selection server-side (strict: must exist in workspace languages)
+		try {
+			const res = await fetch('/api/i18n/locale', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ locale: code })
+			});
+
+			if (!res.ok) {
+				const msg = await res.text().catch(() => '');
+				console.warn('Failed to set locale cookie', msg);
+				return;
+			}
+		} catch (err) {
+			console.warn('Failed to set locale cookie', err);
+			return;
+		}
+
 		locale.set(code);
+		setRuntimeLocale(code);
+		await loadMessages();
 	}
 
 	async function handleLogout() {
@@ -35,9 +63,20 @@
 		goto('/login');
 	}
 
-	function handleWorkspaceChange(workspaceId: string) {
+	async function handleWorkspaceChange(workspaceId: string) {
 		currentWorkspaceId.set(workspaceId);
 		showWorkspaceMenu = false;
+
+		// Set workspace cookie on server
+		try {
+			await fetch('/api/workspace/set', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ workspaceId })
+			});
+		} catch (error) {
+			console.error('Failed to set workspace cookie:', error);
+		}
 	}
 
 	function handleThemeChange(newTheme: 'system' | 'light' | 'dark') {
@@ -90,10 +129,12 @@
 				{/if}
 			</div>
 		{:else if session}
-			<h2 class="text-lg font-semibold">Workspace</h2>
-			<span class="text-sm text-muted-foreground">No workspace selected</span>
+			<h2 class="text-lg font-semibold">{t('workspace.label', 'Workspace')}</h2>
+			<span class="text-sm text-muted-foreground">
+				{t('workspace.none_selected', 'No workspace selected')}
+			</span>
 		{:else}
-			<h2 class="text-lg font-semibold">i18n Platform</h2>
+			<h2 class="text-lg font-semibold">{t('app.title', 'i18n Platform')}</h2>
 		{/if}
 	</div>
 	<div class="flex items-center gap-4">
@@ -138,23 +179,55 @@
 			{/if}
 		</div>
 		<!-- Language Selector -->
-		<div class="flex items-center gap-2">
-			<Globe class="h-4 w-4 text-muted-foreground" />
-			<div class="flex gap-1">
-				{#each languages as lang}
-					<button
-						on:click={() => handleLocaleChange(lang.code)}
-						class={cn(
-							'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-							$locale === lang.code
-								? 'bg-accent text-accent-foreground'
-								: 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-						)}
-					>
-						{lang.label}
-					</button>
-				{/each}
-			</div>
+		<div class="relative">
+			<button
+				disabled={!session || languages.length === 0}
+				on:click={() => (showLanguageMenu = !showLanguageMenu)}
+				class={cn(
+					'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent',
+					(!session || languages.length === 0) && 'cursor-not-allowed opacity-60 hover:bg-transparent'
+				)}
+				title={
+					languages.length === 0
+						? t('i18n.no_languages_hint', 'Add languages in Settings → i18n → Languages')
+						: t('i18n.language', 'Language')
+				}
+			>
+				<Globe class="h-4 w-4 text-muted-foreground" />
+				<span>{selectedLanguage ? selectedLanguage.name : $locale}</span>
+				<ChevronDown class="h-4 w-4" />
+			</button>
+			{#if showLanguageMenu && session && languages.length > 0}
+				<div
+					class="absolute right-0 top-full z-50 mt-2 w-48 rounded-md border bg-popover shadow-md"
+					role="menu"
+					tabindex="-1"
+					on:click|stopPropagation
+					on:keydown|stopPropagation
+				>
+					<div class="p-1">
+						{#each languages as lang}
+							<button
+								on:click={() => {
+									showLanguageMenu = false;
+									handleLocaleChange(lang.code);
+								}}
+								class={cn(
+									'w-full rounded-md px-3 py-2 text-left text-sm transition-colors',
+									$locale === lang.code
+										? 'bg-accent text-accent-foreground'
+										: 'hover:bg-accent hover:text-accent-foreground'
+								)}
+							>
+								<span class="flex items-center justify-between gap-2">
+									<span>{lang.name}</span>
+									<span class="text-xs text-muted-foreground">{lang.code}</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
 		</div>
 		<!-- User Menu -->
 		{#if session && user}
@@ -183,14 +256,16 @@
 								class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
 							>
 								<LogOut class="h-4 w-4" />
-								<span>Sign Out</span>
+								<span>{t('auth.sign_out', 'Sign Out')}</span>
 							</button>
 						</div>
 					</div>
 				{/if}
 			</div>
 		{:else}
-			<Button variant="outline" on:click={() => goto('/login')}> Login </Button>
+			<Button variant="outline" on:click={() => goto('/login')}>
+				{t('auth.login', 'Login')}
+			</Button>
 		{/if}
 	</div>
 </header>

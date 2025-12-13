@@ -1,8 +1,9 @@
 <script lang="ts">
 	import '../app.css';
-	import { locale, dir } from '$lib/stores/direction';
+	import { locale, dir, setRtlLanguages } from '$lib/stores/direction';
 	import { workspaces, currentWorkspaceId } from '$lib/stores/workspace';
 	import { effectiveTheme } from '$lib/stores/theme';
+	import { loadMessages, setRuntimeLocale } from '$lib/stores/i18n';
 	import Header from '$lib/components/Header.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SupabaseBanner from '$lib/components/SupabaseBanner.svelte';
@@ -11,12 +12,36 @@
 
 	export let data: LayoutData;
 
+	let localeInitialized = false;
+	let lastMessagesKey = '';
+
 	// Sync workspaces from server
 	$: if (data.workspaces) {
 		workspaces.set(data.workspaces);
 		// Set current workspace if not set and workspaces exist
 		if (data.workspaces.length > 0 && !$currentWorkspaceId) {
 			currentWorkspaceId.set(data.workspaces[0].id);
+		}
+	}
+
+	// Sync workspace-configured RTL languages (fallback to defaults if empty)
+	$: if (data.languages) {
+		setRtlLanguages((data.languages || []).filter((l) => l.is_rtl).map((l) => l.code));
+	}
+
+	// Initialize runtime locale from server cookie once (avoid overriding user changes)
+	$: if (!localeInitialized && data.currentLocale) {
+		localeInitialized = true;
+		locale.set(data.currentLocale);
+		setRuntimeLocale(data.currentLocale);
+	}
+
+	// Load runtime messages when workspace/locale changes (no blocking UI)
+	$: if (data.supabaseConfigured && data.session && $currentWorkspaceId) {
+		const key = `${$currentWorkspaceId}:${$locale}`;
+		if (key !== lastMessagesKey) {
+			lastMessagesKey = key;
+			loadMessages();
 		}
 	}
 
@@ -47,7 +72,13 @@
 		<Sidebar />
 	{/if}
 	<div class="flex flex-1 flex-col overflow-hidden">
-		<Header session={data.session} user={data.user} workspaces={data.workspaces} />
+		<Header
+			session={data.session}
+			user={data.user}
+			workspaces={data.workspaces}
+			languages={data.languages}
+			currentLocale={data.currentLocale}
+		/>
 		{#if !data.supabaseConfigured}
 			<SupabaseBanner />
 		{/if}

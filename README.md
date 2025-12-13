@@ -96,6 +96,26 @@ supabase db reset
 
 This will run all migrations in `supabase/migrations/` in order.
 
+#### Creating Your First Workspace
+
+After setting up Supabase and logging in, you'll need to create a workspace to access the dashboard:
+
+**Recommended: Use the UI**
+1. Log in to the application
+2. Navigate to `/dashboard`
+3. Use the "Create Workspace" dialog that appears automatically
+4. Enter a workspace name and click "Create"
+
+**Alternative: SQL Script**
+If you prefer to create a workspace via SQL:
+1. Open Supabase SQL Editor
+2. Open `scripts/create-workspace.sql`
+3. Replace `'your-email@example.com'` with your actual email
+4. Optionally change the workspace name
+5. Run the script
+
+**Note**: The SQL method may require proper RLS permissions. The UI method is recommended.
+
 ### Environment Variables
 
 **⚠️ Important**: You must create a `.env` file to test authentication and workspaces features.
@@ -127,27 +147,63 @@ TRANSLATION_SERVICE_API_KEY=your_api_key
 - The app will run without these variables, but authentication and workspace features will be disabled (a banner will be shown)
 - **User Creation**: Use the UI sign-up flow or magic link authentication. Do not use service role keys in scripts.
 
-## Localization Pipeline
+## i18n Pipeline Quickstart
 
-The template includes a streamlined workflow for managing translations:
+The template includes a complete translation management workflow:
 
-1. **Export**: Extract translation keys from your codebase into a CSV file
-   ```bash
-   npm run i18n:export
-   ```
+### Runtime language switching
 
-2. **Translate**: Send the CSV file to your translation service (e.g., Omniglot) for professional translation
+- Select the active language from the header language selector (per workspace)
+- The app loads translations from Supabase at runtime and falls back to English if translations are missing
 
-3. **Import**: Import the translated CSV back into the application
-   ```bash
-   npm run i18n:import
-   ```
+### Auto-collect microcopy keys (recommended)
+
+To avoid “empty exports” during development, use `t('some.key', 'English fallback')` when replacing UI strings. Missing keys are collected locally and can be synced to Supabase in one batch:
+
+1. Replace strings in the UI with `t('…', 'English')`
+2. Navigate the app to “touch” those screens (this collects keys locally)
+3. Go to **Settings → i18n**
+4. In **Key Registry**, click **Sync to Workspace** (owner/admin only)
+5. Now **Export CSV** will include those keys
+
+### 1. Add Languages
+- Navigate to **Settings → i18n → Languages**
+- Click "Add Language"
+- Enter language code (e.g., `en`, `es`, `ar`) and display name
+- Mark RTL languages (Arabic, Hebrew, etc.) for automatic layout adjustments
+
+### 2. Add Translation Keys
+- Navigate to **Settings → i18n → Keys**
+- Click "Add Key"
+- Enter key identifier, module, type, and optional metadata (screen, context, screenshot ref, max chars)
+- Keys are organized by module for easy management
+
+### 3. Export CSV
+- Navigate to **Settings → i18n → Export**
+- Click "Download CSV"
+- CSV file includes all keys with metadata and current translation values
+- Empty cells indicate missing translations
+
+### 4. Translate in Omniglot
+- Send the CSV file to your translation service (e.g., Omniglot)
+- Translators fill in the empty language columns
+- Receive the completed CSV file
+
+### 5. Import CSV
+- Navigate to **Settings → i18n → Import**
+- Upload the translated CSV file
+- Choose conflict policy:
+  - **Fill Missing**: Only update empty translations (recommended)
+  - **Overwrite**: Replace all existing translations
+- Preview changes before importing
+- Confirm to apply translations
 
 The pipeline automatically handles:
-- Key extraction and validation
-- Missing translation detection
+- Workspace-scoped translations (multi-tenant support)
+- Automatic language creation from CSV columns
+- Key metadata updates
+- Translation status tracking (draft/review/approved)
 - RTL language detection and layout adjustments
-- Locale file generation
 
 ## Documentation
 

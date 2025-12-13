@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { t } from '$lib/stores';
 	import { cn } from '$lib/utils';
 	import {
 		LayoutDashboard,
@@ -15,40 +16,50 @@
 	} from 'lucide-svelte';
 
 	interface NavItem {
-		title: string;
+		titleKey: string;
+		fallback: string;
 		href: string;
 		icon: typeof LayoutDashboard;
 	}
 
 	interface NavGroup {
-		title: string;
+		titleKey: string;
+		fallback: string;
 		items: NavItem[];
 	}
 
 	const navGroups: NavGroup[] = [
 		{
-			title: 'Core',
+			titleKey: 'nav.group.core',
+			fallback: 'Core',
 			items: [
-				{ title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ title: 'Projects', href: '/projects', icon: FolderKanban },
-				{ title: 'Logs', href: '/logs', icon: FileText }
+				{ titleKey: 'nav.dashboard', fallback: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+				{ titleKey: 'nav.projects', fallback: 'Projects', href: '/projects', icon: FolderKanban },
+				{ titleKey: 'nav.logs', fallback: 'Logs', href: '/logs', icon: FileText }
 			]
 		},
 		{
-			title: 'AI',
+			titleKey: 'nav.group.ai',
+			fallback: 'AI',
 			items: [
-				{ title: 'Chat', href: '/chat', icon: MessageSquare },
-				{ title: 'Agents', href: '/agents', icon: Bot },
-				{ title: 'Datasets', href: '/datasets', icon: Database }
+				{ titleKey: 'nav.chat', fallback: 'Chat', href: '/chat', icon: MessageSquare },
+				{ titleKey: 'nav.agents', fallback: 'Agents', href: '/agents', icon: Bot },
+				{ titleKey: 'nav.datasets', fallback: 'Datasets', href: '/datasets', icon: Database }
 			]
 		},
 		{
-			title: 'Settings',
+			titleKey: 'nav.group.settings',
+			fallback: 'Settings',
 			items: [
-				{ title: 'Settings', href: '/settings', icon: Settings },
-				{ title: 'i18n', href: '/settings/i18n', icon: Languages },
-				{ title: 'Users', href: '/settings/users', icon: Users },
-				{ title: 'Integrations', href: '/settings/integrations', icon: Plug }
+				{ titleKey: 'nav.settings', fallback: 'Settings', href: '/settings', icon: Settings },
+				{ titleKey: 'nav.i18n', fallback: 'i18n', href: '/settings/i18n', icon: Languages },
+				{ titleKey: 'nav.users', fallback: 'Users', href: '/settings/users', icon: Users },
+				{
+					titleKey: 'nav.integrations',
+					fallback: 'Integrations',
+					href: '/settings/integrations',
+					icon: Plug
+				}
 			]
 		}
 	];
@@ -63,7 +74,7 @@
 		{#each navGroups as group}
 			<div class="mb-4">
 				<h2 class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-					{group.title}
+					{t(group.titleKey, group.fallback)}
 				</h2>
 				<div class="space-y-1">
 					{#each group.items as item}
@@ -77,7 +88,7 @@
 							)}
 						>
 							<svelte:component this={item.icon} class="h-5 w-5 flex-shrink-0" />
-							<span>{item.title}</span>
+							<span>{t(item.titleKey, item.fallback)}</span>
 						</a>
 					{/each}
 				</div>

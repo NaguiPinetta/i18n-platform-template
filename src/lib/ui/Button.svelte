@@ -6,6 +6,7 @@
 	export let size: 'default' | 'sm' | 'lg' | 'icon' = 'default';
 	export let className: string = '';
 	export let type: 'button' | 'submit' | 'reset' = 'button';
+	export let disabled: boolean = false;
 
 	const variantClasses = {
 		default: 'bg-primary text-primary-foreground hover:bg-primary/90',
@@ -25,14 +26,16 @@
 </script>
 
 <button
+	{...$$restProps}
 	type={type}
+	disabled={disabled}
+	on:click
 	class={cn(
 		'inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
 		variantClasses[variant],
 		sizeClasses[size],
 		className
 	)}
-	{...$$restProps}
 >
 	<slot />
 </button>

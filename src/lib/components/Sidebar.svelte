@@ -4,6 +4,7 @@
 	import {
 		LayoutDashboard,
 		FolderKanban,
+		FileText,
 		MessageSquare,
 		Bot,
 		Database,
@@ -29,7 +30,8 @@
 			title: 'Core',
 			items: [
 				{ title: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-				{ title: 'Projects', href: '/projects', icon: FolderKanban }
+				{ title: 'Projects', href: '/projects', icon: FolderKanban },
+				{ title: 'Logs', href: '/logs', icon: FileText }
 			]
 		},
 		{

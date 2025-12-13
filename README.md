@@ -38,12 +38,77 @@ npm run build
 npm run preview
 ```
 
+### Supabase Setup
+
+This template uses Supabase for authentication and data persistence. You'll need to set up a Supabase project:
+
+#### Option 1: Using Supabase Cloud
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to Project Settings → API
+3. Copy your Project URL and anon/public key
+
+#### Option 2: Using Supabase Local Development
+
+1. Install Supabase CLI:
+   ```bash
+   npm install -g supabase
+   ```
+
+2. Initialize Supabase in your project:
+   ```bash
+   supabase init
+   ```
+
+3. Start local Supabase:
+   ```bash
+   supabase start
+   ```
+
+4. The CLI will output your local Supabase URL and keys. Use these in your `.env` file.
+
+5. Apply migrations:
+   ```bash
+   supabase db reset
+   ```
+   This will run all migrations in `supabase/migrations/`
+
+#### Applying Migrations
+
+**For Supabase Cloud Users:**
+
+1. Go to your Supabase project dashboard
+2. Navigate to SQL Editor
+3. Run the migrations in order. You can print all migrations with:
+   ```bash
+   npm run migrations:print
+   ```
+4. Copy and paste each migration file's contents into the SQL Editor and execute them in order:
+   - `001_workspaces.sql` - Creates workspaces and workspace_members tables with RLS
+   - `002_profiles.sql` - Creates profiles table and trigger for user creation
+
+**For Supabase CLI Users:**
+
+If you have Supabase CLI configured locally, you can apply all migrations at once:
+```bash
+supabase db reset
+```
+
+This will run all migrations in `supabase/migrations/` in order.
+
 ### Environment Variables
 
-Create a `.env` file in the root directory with the following variables:
+**⚠️ Important**: You must create a `.env` file to test authentication and workspaces features.
+
+1. Copy the example file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and add your Supabase credentials:
 
 ```env
-# Supabase Configuration
+# Supabase Configuration (REQUIRED for auth/workspaces)
 PUBLIC_SUPABASE_URL=your_supabase_url
 PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
@@ -54,6 +119,13 @@ PUBLIC_SUPPORTED_LOCALES=en,es,fr,ar
 # Translation Service (if applicable)
 TRANSLATION_SERVICE_API_KEY=your_api_key
 ```
+
+**Security Notes**:
+- `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_ANON_KEY` are public variables (prefixed with `PUBLIC_`) and safe to expose in the browser
+- **The anon key is designed to be public** - security is provided by **Row Level Security (RLS) policies** in Supabase, which is the security boundary
+- **Never commit your `.env` file to version control** - it's already in `.gitignore`
+- The app will run without these variables, but authentication and workspace features will be disabled (a banner will be shown)
+- **User Creation**: Use the UI sign-up flow or magic link authentication. Do not use service role keys in scripts.
 
 ## Localization Pipeline
 
@@ -86,6 +158,19 @@ For detailed specifications and guidelines, see the `/specs` folder:
 - **[i18n Pipeline Specification](./specs/i18n-pipeline.md)** - Translation workflow, CSV contract, and RTL rules
 - **[Data Model Specification](./specs/data-model.md)** - Supabase schema and RLS policies
 - **[Roadmap](./specs/roadmap.md)** - Development phases and milestones
+
+## Security
+
+**⚠️ Important**: This is a public template repository. Please review our security guidelines before contributing.
+
+- **[Security Guidelines](./SECURITY.md)** - Comprehensive security best practices
+- **Key Points**:
+  - Never commit passwords, API keys, or service role keys
+  - The `PUBLIC_SUPABASE_ANON_KEY` is safe to expose - RLS is the security boundary
+  - Use UI sign-up/magic link for user creation, not privileged scripts
+  - All sensitive data must use environment variables
+
+For security vulnerabilities, please contact maintainers privately (do not create public issues).
 
 ## Contributing
 

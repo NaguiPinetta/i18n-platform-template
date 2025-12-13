@@ -1,0 +1,101 @@
+name: Security Scan
+
+on:
+  pull_request:
+    branches: [main, master]
+  push:
+    branches: [main, master]
+
+jobs:
+  scan-secrets:
+    name: Scan for Secrets
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better scanning
+      
+      - name: Scan for common secret patterns
+        run: |
+          echo "🔍 Scanning for common secret patterns..."
+          
+          # Exit code will be 1 if any matches are found
+          FOUND_SECRETS=0
+          
+          # Pattern 1: Hardcoded passwords (password = "value" or password='value')
+          if grep -r -E "(password|passwd|pwd)\s*=\s*['\"][^'\"]+['\"]" --include="*.ts" --include="*.js" --include="*.svelte" --include="*.tsx" --include="*.jsx" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build; then
+            echo "❌ ERROR: Found hardcoded password assignments"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 2: Service role keys (SUPABASE_SERVICE_ROLE_KEY or service_role)
+          if grep -r -iE "(SERVICE_ROLE_KEY|service_role|service-role)" --include="*.ts" --include="*.js" --include="*.svelte" --include="*.md" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build --exclude-dir=.github; then
+            echo "❌ ERROR: Found service role key references (should not be in public template)"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 3: OpenAI API keys (sk- prefix)
+          if grep -r -E "sk-[a-zA-Z0-9]{32,}" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build; then
+            echo "❌ ERROR: Found potential OpenAI API key (sk- prefix)"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 4: Generic API keys (api_key = "value")
+          if grep -r -E "api[_-]?key\s*=\s*['\"][^'\"]{20,}['\"]" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build -i; then
+            echo "❌ ERROR: Found hardcoded API key"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 5: AWS keys (AKIA prefix or aws_secret_access_key)
+          if grep -r -E "(AKIA[0-9A-Z]{16}|aws_secret_access_key\s*=\s*['\"])" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build; then
+            echo "❌ ERROR: Found potential AWS credentials"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 6: Private keys (BEGIN PRIVATE KEY or BEGIN RSA PRIVATE KEY)
+          if grep -r -E "BEGIN\s+(RSA\s+)?PRIVATE\s+KEY" --include="*.ts" --include="*.js" --include="*.svelte" --include="*.pem" --include="*.key" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build; then
+            echo "❌ ERROR: Found private key in codebase"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 7: Database connection strings with passwords
+          if grep -r -E "(postgres://|mysql://|mongodb://).*:.*@.*" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build; then
+            echo "❌ ERROR: Found database connection string with credentials"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 8: JWT secrets (jwt_secret = "value")
+          if grep -r -E "jwt[_-]?secret\s*=\s*['\"][^'\"]{16,}['\"]" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build -i; then
+            echo "❌ ERROR: Found hardcoded JWT secret"
+            FOUND_SECRETS=1
+          fi
+          
+          # Pattern 9: Email addresses that look like real credentials (in code, not comments)
+          # This is a softer check - just warn about potential real emails
+          if grep -r -E "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" --include="*.ts" --include="*.js" --include="*.svelte" --exclude-dir=node_modules --exclude-dir=.svelte-kit --exclude-dir=build | grep -v "example.com" | grep -v "test@" | grep -v "//.*@" | grep -v "^\s*//" | grep -v "^\s*\*"; then
+            echo "⚠️  WARNING: Found potential real email addresses (review manually)"
+            # Don't fail on this, just warn
+          fi
+          
+          if [ $FOUND_SECRETS -eq 1 ]; then
+            echo ""
+            echo "🚨 SECURITY ISSUE DETECTED"
+            echo "Please review the patterns above and remove any hardcoded secrets."
+            echo "All sensitive data should use environment variables."
+            echo "See SECURITY.md for guidelines."
+            exit 1
+          else
+            echo "✅ No obvious secrets detected"
+          fi
+      
+      - name: Check for .env files
+        run: |
+          if find . -name ".env" -not -path "./node_modules/*" -not -path "./.svelte-kit/*" -not -path "./build/*" | grep -q .; then
+            echo "❌ ERROR: Found .env file in repository"
+            echo "Please ensure .env files are in .gitignore and not committed"
+            exit 1
+          else
+            echo "✅ No .env files found in repository"
+          fi

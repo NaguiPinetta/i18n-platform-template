@@ -27,15 +27,35 @@
 		}
 
 		loading = true;
-		const { data, error } = await supabase
+		const { data: membersData, error } = await supabase
 			.from('workspace_members')
-			.select('*, profiles:user_id(email)')
+			.select('*')
 			.eq('workspace_id', $currentWorkspace.id);
 
 		if (error) {
 			console.error('Error loading members:', error);
+			members = [];
+		} else if (membersData && membersData.length > 0) {
+			// Fetch profiles separately and join
+			const userIds = membersData.map((m) => m.user_id);
+			const { data: profilesData } = await supabase
+				.from('profiles')
+				.select('id, email')
+				.in('id', userIds);
+
+			// Join profiles with members
+			const profilesMap = new Map(
+				(profilesData || [])
+					.filter((p) => p.email !== null)
+					.map((p) => [p.id, { email: p.email! }])
+			);
+
+			members = membersData.map((member) => ({
+				...member,
+				profiles: profilesMap.get(member.user_id)
+			})) as WorkspaceMember[];
 		} else {
-			members = (data as any) || [];
+			members = [];
 		}
 
 		loading = false;
@@ -51,7 +71,7 @@
 
 	function getMemberEmail(member: WorkspaceMember): string {
 		const profiles = member.profiles as any;
-		return (profiles && profiles.email) || 'N/A';
+		return (profiles && profiles.email) || t('common.not_available', 'N/A');
 	}
 </script>
 
@@ -120,7 +140,7 @@
 										<span
 											class="rounded-full bg-accent px-2 py-1 text-xs font-medium"
 										>
-											{member.role}
+											{t(`settings.users.role.${member.role}`, member.role)}
 										</span>
 									</td>
 									<td class="px-6 py-4 text-sm text-muted-foreground">

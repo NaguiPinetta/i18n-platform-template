@@ -601,27 +601,27 @@
 							<div class="space-y-4">
 								<div class="grid gap-4 md:grid-cols-2">
 									<div>
-										<p class="text-xs font-medium text-muted-foreground">Workspace ID</p>
-										<p class="text-sm font-mono break-all">{diagnosticsData.workspaceId || 'Not set'}</p>
+										<p class="text-xs font-medium text-muted-foreground">{t('i18n.diagnostics.workspace_id', 'Workspace ID')}</p>
+										<p class="text-sm font-mono break-all">{diagnosticsData.workspaceId || t('common.not_set', 'Not set')}</p>
 									</div>
 									<div>
-										<p class="text-xs font-medium text-muted-foreground">Current Locale</p>
+										<p class="text-xs font-medium text-muted-foreground">{t('i18n.diagnostics.current_locale', 'Current Locale')}</p>
 										<p class="text-sm font-mono">{diagnosticsData.currentLocale}</p>
 									</div>
 								</div>
 
 								<div class="grid gap-4 md:grid-cols-3">
 									<div>
-										<p class="text-xs font-medium text-muted-foreground">Languages</p>
+										<p class="text-xs font-medium text-muted-foreground">{t('i18n.diagnostics.languages', 'Languages')}</p>
 										<p class="text-2xl font-bold">{diagnosticsData.languagesCount}</p>
 									</div>
 									<div>
-										<p class="text-xs font-medium text-muted-foreground">Total Keys</p>
+										<p class="text-xs font-medium text-muted-foreground">{t('i18n.diagnostics.total_keys', 'Total Keys')}</p>
 										<p class="text-2xl font-bold">{diagnosticsData.keysCount}</p>
 									</div>
 									<div>
 										<p class="text-xs font-medium text-muted-foreground">
-											Translations ({diagnosticsData.currentLocale})
+											{`${t('i18n.diagnostics.translations', 'Translations')} (${diagnosticsData.currentLocale})`}
 										</p>
 										<p class="text-2xl font-bold">{diagnosticsData.translationsCount}</p>
 										{#if diagnosticsData.keysCount > 0}
@@ -629,7 +629,7 @@
 												{Math.round(
 													(diagnosticsData.translationsCount / diagnosticsData.keysCount) * 100
 												)}%
-												coverage
+												{t('i18n.diagnostics.coverage', 'coverage')}
 											</p>
 										{/if}
 									</div>
@@ -638,8 +638,7 @@
 								{#if diagnosticsData.missingTranslations.length > 0}
 									<div>
 										<p class="mb-2 text-xs font-medium text-muted-foreground">
-											Missing Translations Sample ({diagnosticsData.missingTranslations.length} of{' '}
-											{diagnosticsData.keysCount - diagnosticsData.translationsCount} missing)
+											{`${t('i18n.diagnostics.missing_translations_sample', 'Missing Translations Sample')} (${diagnosticsData.missingTranslations.length} ${t('i18n.diagnostics.of', 'of')} ${diagnosticsData.keysCount - diagnosticsData.translationsCount} ${t('i18n.diagnostics.missing', 'missing')})`}
 										</p>
 										<div class="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
 											{#each diagnosticsData.missingTranslations as item}

@@ -580,11 +580,11 @@
 											{@const isLanguage = /^[a-z]{2,3}$/i.test(header.trim())}
 											{@const isDetected = header.trim().toLowerCase() === lang.code.toLowerCase()}
 											<option value={index}>
-												Column {index + 1}: {header}
+												{`${t('i18n.import.mapping.column', 'Column')} ${index + 1}: ${header}`}
 												{#if isDetected}
-													{' '}(auto-detected)
+													{' '}({t('i18n.import.mapping.auto_detected', 'auto-detected')})
 												{:else if isLanguage}
-													{' '}(language code)
+													{' '}({t('i18n.import.mapping.language_code', 'language code')})
 												{/if}
 											</option>
 										{/each}

@@ -48,6 +48,10 @@ export const GET: RequestHandler = async (event) => {
 
 	// At this point, workspaceId is guaranteed to be non-null
 	const validatedWorkspaceId = validation.workspaceId;
+	
+	// Check for missing_only query parameter
+	const url = new URL(event.request.url);
+	const missingOnly = url.searchParams.get('missing_only') === 'true';
 
 	try {
 		// Get all languages for workspace, sorted by code
@@ -112,6 +116,20 @@ export const GET: RequestHandler = async (event) => {
 		// Build CSV rows
 		for (const key of keys || []) {
 			const keyTranslations = translationMap.get(key.id) || new Map();
+			
+			// If missing_only is true, check if key has any missing translations
+			if (missingOnly) {
+				const hasMissingTranslation = (languages || []).some((lang) => {
+					const translation = keyTranslations.get(lang.id);
+					return !translation || translation.trim() === '';
+				});
+				
+				// Skip keys that have all translations
+				if (!hasMissingTranslation) {
+					continue;
+				}
+			}
+			
 			const rowFields = [
 				key.key,
 				key.module,

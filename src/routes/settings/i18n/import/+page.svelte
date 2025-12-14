@@ -100,10 +100,17 @@
 
 			// Parse CSV header to detect columns
 			try {
-				const fileContent = await selectedFile.text();
-				const lines = fileContent.split(/\r?\n/).filter((line) => line.trim());
+				let fileContent = await selectedFile.text();
+				
+				// Remove BOM if present
+				if (fileContent.charCodeAt(0) === 0xfeff) {
+					fileContent = fileContent.slice(1);
+				}
+				
+				const lines = fileContent.split(/\r?\n/).filter((line) => line.trim().length > 0);
 				if (lines.length > 0) {
-					csvHeaders = parseCsvLine(lines[0]);
+					// Trim header values
+					csvHeaders = parseCsvLine(lines[0]).map((h) => (h || '').trim());
 					
 					// Auto-detect mappings based on header names
 					columnMapping = {
@@ -693,16 +700,18 @@
 				</div>
 				{#if preview.skipped_reasons.length > 0}
 					<div>
-						<div class="mb-2 text-sm font-medium">
-							{t('i18n.import.preview.skipped_rows', 'Skipped Rows:')}
-						</div>
-						<div class="max-h-40 space-y-1 overflow-y-auto text-sm text-muted-foreground">
-							{#each preview.skipped_reasons as reason}
-								<div>
-									{t('i18n.import.preview.row', 'Row')} {reason.row}: {reason.reason}
-								</div>
-							{/each}
-						</div>
+						<details class="rounded-md border">
+							<summary class="cursor-pointer p-3 text-sm font-medium hover:bg-accent">
+								{t('i18n.import.preview.skipped_rows', 'Skipped Rows')} ({preview.skipped_reasons.length})
+							</summary>
+							<div class="max-h-60 space-y-1 overflow-y-auto p-3 text-sm text-muted-foreground">
+								{#each preview.skipped_reasons as reason}
+									<div class="border-b last:border-0 pb-1">
+										<span class="font-medium">{t('i18n.import.preview.row', 'Row')} {reason.row}:</span> {reason.reason}
+									</div>
+								{/each}
+							</div>
+						</details>
 					</div>
 				{/if}
 				<div class="flex justify-end gap-2">
@@ -753,6 +762,22 @@
 						<div class="text-2xl font-bold">{importResult.rows_skipped}</div>
 					</div>
 				</div>
+				{#if importResult.skipped_reasons.length > 0}
+					<div>
+						<details class="rounded-md border">
+							<summary class="cursor-pointer p-3 text-sm font-medium hover:bg-accent">
+								{t('i18n.import.result.skipped_rows', 'Skipped Rows')} ({importResult.skipped_reasons.length})
+							</summary>
+							<div class="max-h-60 space-y-1 overflow-y-auto p-3 text-sm text-muted-foreground">
+								{#each importResult.skipped_reasons as reason}
+									<div class="border-b last:border-0 pb-1">
+										<span class="font-medium">{t('i18n.import.result.row', 'Row')} {reason.row}:</span> {reason.reason}
+									</div>
+								{/each}
+							</div>
+						</details>
+					</div>
+				{/if}
 				<div class="flex justify-end">
 					<Button on:click={() => (showResultDialog = false)}>
 						{t('common.close', 'Close')}

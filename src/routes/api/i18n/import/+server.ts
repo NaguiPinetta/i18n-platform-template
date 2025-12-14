@@ -45,10 +45,30 @@ function parseCsvLine(line: string): string[] {
 }
 
 /**
- * Parse CSV content
+ * Remove BOM (Byte Order Mark) from string
+ */
+function removeBom(content: string): string {
+	if (content.charCodeAt(0) === 0xfeff) {
+		return content.slice(1);
+	}
+	return content;
+}
+
+/**
+ * Parse CSV content with robustness improvements
  */
 function parseCsv(content: string): string[][] {
-	const lines = content.split(/\r?\n/).filter((line) => line.trim());
+	// Remove BOM if present
+	const cleaned = removeBom(content);
+	
+	// Split lines and filter empty lines
+	const lines = cleaned.split(/\r?\n/).filter((line) => line.trim().length > 0);
+	
+	if (lines.length === 0) {
+		return [];
+	}
+	
+	// Parse each line
 	return lines.map(parseCsvLine);
 }
 
@@ -116,13 +136,15 @@ export const POST: RequestHandler = async (event) => {
 		languages: Record<string, number>;
 	} | null = null;
 
-	if (columnMappingJson) {
+			if (columnMappingJson) {
 		try {
 			const parsed = JSON.parse(columnMappingJson);
-			// Validate mapping
+			// Validate mapping - key is required
 			if (parsed.key === null || parsed.key === undefined) {
 				return text('Key column mapping is required', { status: 400 });
 			}
+			// Validate required columns: module and type should have defaults if not mapped
+			// We'll use defaults: module='ui', type='microcopy' if not provided
 			if (!parsed.languages || Object.keys(parsed.languages).length === 0) {
 				return text('At least one language column must be mapped', { status: 400 });
 			}
@@ -140,7 +162,8 @@ export const POST: RequestHandler = async (event) => {
 			return text('CSV file is empty', { status: 400 });
 		}
 
-		const headerRow = rows[0];
+		// Trim header row values
+		const headerRow = rows[0].map((h) => (h || '').trim());
 		const dataRows = rows.slice(1);
 
 		let languageColumns: string[] = [];
@@ -270,13 +293,16 @@ export const POST: RequestHandler = async (event) => {
 					result.rows_skipped++;
 					result.skipped_reasons.push({
 						row: rowNum,
-						reason: 'Key field is empty or missing'
+						reason: 'Key field is empty or missing (required)'
 					});
 					continue;
 				}
 				keyValue = keyVal;
-				moduleValue = getValue(row, columnMapping.module);
-				typeValue = getValue(row, columnMapping.type);
+				
+				// Validate required columns: module and type
+				// Use defaults if not mapped or empty
+				moduleValue = getValue(row, columnMapping.module) || 'ui';
+				typeValue = getValue(row, columnMapping.type) || 'microcopy';
 				screenValue = getValue(row, columnMapping.screen);
 				contextValue = getValue(row, columnMapping.context);
 				screenshotRefValue = getValue(row, columnMapping.screenshot_ref);

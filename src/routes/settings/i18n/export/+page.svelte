@@ -10,15 +10,35 @@
 	import { currentWorkspace } from '$lib/stores/workspace';
 	import { Download } from 'lucide-svelte';
 	import { t } from '$lib/stores';
+	import { browser } from '$app/environment';
+	import { onMount } from 'svelte';
 
 	$: supabaseConfigured = $page.data.supabaseConfigured;
 	$: hasWorkspace = !!$currentWorkspace;
+
+	let lastExportTime: Date | null = null;
+	let includeOnlyMissing = false;
+
+	const STORAGE_KEY = 'i18n_last_export_time';
+
+	onMount(() => {
+		if (browser) {
+			const stored = localStorage.getItem(STORAGE_KEY);
+			if (stored) {
+				lastExportTime = new Date(stored);
+			}
+		}
+	});
 
 	async function handleExport() {
 		if (!hasWorkspace) return;
 
 		try {
-			const response = await fetch('/api/i18n/export.csv');
+			const url = includeOnlyMissing 
+				? '/api/i18n/export.csv?missing_only=true'
+				: '/api/i18n/export.csv';
+			
+			const response = await fetch(url);
 			if (!response.ok) {
 				const error = await response.text();
 				alert(t('i18n.export.error', 'Export failed: ') + error);
@@ -26,14 +46,20 @@
 			}
 
 			const blob = await response.blob();
-			const url = window.URL.createObjectURL(blob);
+			const downloadUrl = window.URL.createObjectURL(blob);
 			const a = document.createElement('a');
-			a.href = url;
+			a.href = downloadUrl;
 			a.download = `i18n_${$currentWorkspace?.name || 'export'}_${new Date().toISOString().split('T')[0]}.csv`;
 			document.body.appendChild(a);
 			a.click();
 			document.body.removeChild(a);
-			window.URL.revokeObjectURL(url);
+			window.URL.revokeObjectURL(downloadUrl);
+			
+			// Store export timestamp
+			if (browser) {
+				lastExportTime = new Date();
+				localStorage.setItem(STORAGE_KEY, lastExportTime.toISOString());
+			}
 		} catch (error) {
 			console.error('Export error:', error);
 			alert(t('i18n.export.error', 'Failed to export CSV: ') + (error as Error).message);
@@ -78,7 +104,7 @@
 				<p class="text-sm text-muted-foreground mb-6">
 					{t('i18n.export.includes_title', 'The CSV file includes:')}
 				</p>
-				<ul class="list-disc list-inside text-sm text-muted-foreground mb-6 space-y-1">
+				<ul class="list-disc list-inside text-sm text-muted-foreground mb-4 space-y-1">
 					<li>
 						{t(
 							'i18n.export.includes.keys',
@@ -92,6 +118,25 @@
 						{t('i18n.export.includes.empty', 'Empty cells for missing translations')}
 					</li>
 				</ul>
+				
+				{#if lastExportTime}
+					<p class="text-xs text-muted-foreground mb-4">
+						{t('i18n.export.last_export', 'Last export:')} {lastExportTime.toLocaleString()}
+					</p>
+				{/if}
+				
+				<div class="mb-4 flex items-center gap-2">
+					<input
+						type="checkbox"
+						id="includeOnlyMissing"
+						bind:checked={includeOnlyMissing}
+						class="h-4 w-4 rounded border-input"
+					/>
+					<label for="includeOnlyMissing" class="text-sm text-muted-foreground">
+						{t('i18n.export.include_only_missing', 'Include only keys missing translations')}
+					</label>
+				</div>
+				
 				<Button on:click={handleExport} class="w-full sm:w-auto">
 					<Download class="mr-2 h-4 w-4" />
 					{t('i18n.export.download', 'Download CSV')}

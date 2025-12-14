@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { dev } from '$app/environment';
 import { get, writable } from 'svelte/store';
 import { currentWorkspaceId } from './workspace';
 import { registerKey } from './i18n-registry';
@@ -37,44 +38,78 @@ export async function loadMessages(forceLocale?: string): Promise<void> {
 
 	const workspaceId = get(currentWorkspaceId);
 	const currentState = get(state);
+	const oldLocale = currentState.locale;
 	const locale = forceLocale || currentState.locale || 'en';
 	if (!workspaceId) return;
 
 	const key = `${workspaceId}:${locale}`;
-	// Only skip if same key AND we have messages AND locale hasn't been forced
-	if (!forceLocale && key === lastLoadKey && currentState.messages && Object.keys(currentState.messages).length > 0) {
-		return;
-	}
-	// If forcing a locale change, reset cache and allow new request
-	if (forceLocale && key !== lastLoadKey) {
+
+	// If forcing a locale change, clear all caches first
+	if (forceLocale && forceLocale !== oldLocale) {
+		if (dev) {
+			console.log(`[i18n] Force loading messages for locale: ${forceLocale} (was: ${oldLocale})`);
+		}
+
+		// Clear localStorage cache for all locales of this workspace
+		try {
+			for (let i = localStorage.length - 1; i >= 0; i--) {
+				const key = localStorage.key(i);
+				if (key && key.startsWith(`i18n_messages:${workspaceId}:`)) {
+					localStorage.removeItem(key);
+					if (dev) {
+						console.log(`[i18n] Cleared cache: ${key}`);
+					}
+				}
+			}
+		} catch {
+			// ignore
+		}
+
+		// Reset load tracking to force fresh fetch
 		lastLoadKey = null;
 		inFlight = null;
-	} else if (inFlight && !forceLocale) {
-		return inFlight;
+	} else {
+		// Only skip if same key AND we have messages AND locale hasn't been forced
+		if (!forceLocale && key === lastLoadKey && currentState.messages && Object.keys(currentState.messages).length > 0) {
+			if (dev) {
+				console.log(`[i18n] Skipping load - messages already cached for ${key}`);
+			}
+			return;
+		}
+
+		// If there's an in-flight request and we're not forcing, wait for it
+		if (inFlight && !forceLocale) {
+			return inFlight;
+		}
 	}
 
-	// Warm from localStorage cache (best-effort)
-	try {
-		const cached = localStorage.getItem(cacheKey(workspaceId, locale));
-		if (cached) {
-			const parsed = JSON.parse(cached) as { messages?: Record<string, string> };
-			if (parsed?.messages && typeof parsed.messages === 'object') {
-				state.update((s) => ({ ...s, messages: parsed.messages as Record<string, string> }));
+	// Only warm from localStorage cache if NOT forcing a locale change
+	if (!forceLocale) {
+		try {
+			const cached = localStorage.getItem(cacheKey(workspaceId, locale));
+			if (cached) {
+				const parsed = JSON.parse(cached) as { messages?: Record<string, string> };
+				if (parsed?.messages && typeof parsed.messages === 'object') {
+					state.update((s) => ({ ...s, messages: parsed.messages as Record<string, string> }));
+					if (dev) {
+						console.log(`[i18n] Loaded ${Object.keys(parsed.messages).length} messages from cache for ${locale}`);
+					}
+				}
 			}
+		} catch {
+			// ignore
 		}
-	} catch {
-		// ignore
 	}
 
 	state.update((s) => ({ ...s, loading: true, error: null }));
 
 	inFlight = (async () => {
 		try {
-			// Add cache busting when forcing a locale change
-			const cacheBuster = forceLocale ? `?t=${Date.now()}` : '';
+			// Always use cache busting to ensure fresh data
+			const cacheBuster = `?t=${Date.now()}`;
 			const res = await fetch(`/api/i18n/messages.json${cacheBuster}`, {
 				headers: { Accept: 'application/json' },
-				cache: forceLocale ? 'no-store' : 'default'
+				cache: 'no-store' // Always bypass browser cache
 			});
 
 			if (!res.ok) {
@@ -86,19 +121,8 @@ export async function loadMessages(forceLocale?: string): Promise<void> {
 			const messages = data?.messages && typeof data.messages === 'object' ? data.messages : {};
 			const returnedLocale = (data?.locale || locale).toString();
 
-			// Clear old locale cache from localStorage when locale changes
-			if (forceLocale && returnedLocale !== currentState.locale) {
-				try {
-					// Clear all cached messages for this workspace
-					for (let i = 0; i < localStorage.length; i++) {
-						const key = localStorage.key(i);
-						if (key && key.startsWith(`i18n_messages:${workspaceId}:`)) {
-							localStorage.removeItem(key);
-						}
-					}
-				} catch {
-					// ignore
-				}
+			if (dev) {
+				console.log(`[i18n] Loaded ${Object.keys(messages).length} messages for locale: ${returnedLocale}`);
 			}
 
 			// Update state - this will trigger reactivity in all components using t()
@@ -111,15 +135,19 @@ export async function loadMessages(forceLocale?: string): Promise<void> {
 				error: null
 			}));
 
+			// Cache the new messages
 			try {
 				localStorage.setItem(cacheKey(workspaceId, returnedLocale), JSON.stringify({ messages }));
+				if (dev) {
+					console.log(`[i18n] Cached messages for ${returnedLocale}`);
+				}
 			} catch {
 				// ignore
 			}
 
 			lastLoadKey = `${workspaceId}:${returnedLocale}`;
 		} catch (err) {
-			console.warn('i18n: failed to load messages', err);
+			console.warn('[i18n] Failed to load messages', err);
 			state.update((s) => ({
 				...s,
 				loading: false,

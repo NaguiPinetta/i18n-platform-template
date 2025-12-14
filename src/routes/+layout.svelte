@@ -8,7 +8,7 @@
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SupabaseBanner from '$lib/components/SupabaseBanner.svelte';
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { page } from '$app/stores';
 	import { invalidateAll } from '$app/navigation';
 	import type { LayoutData } from './$types';
@@ -119,6 +119,10 @@
 			document.documentElement.classList.add('dark');
 		} else {
 			document.documentElement.classList.remove('dark');
+		}
+
+		if (browser && dev) {
+			console.log(`[i18n Layout] HTML attributes updated - lang: ${$locale}, dir: ${$dir}`);
 		}
 	}
 

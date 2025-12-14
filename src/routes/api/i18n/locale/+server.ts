@@ -45,11 +45,15 @@ export const POST: RequestHandler = async (event) => {
 
 	event.cookies.set('locale', normalized, {
 		path: '/',
-		maxAge: 60 * 60 * 24 * 365,
+		maxAge: 60 * 60 * 24 * 365, // 1 year
 		httpOnly: true,
 		sameSite: 'lax',
 		secure: !dev
 	});
+
+	if (dev) {
+		console.log(`[i18n API] POST /api/i18n/locale - Set locale cookie: ${normalized} for workspace: ${workspaceId}`);
+	}
 
 	return json({ ok: true, locale: normalized });
 };

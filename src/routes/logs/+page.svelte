@@ -6,6 +6,7 @@
 	import Card from '$lib/ui/Card.svelte';
 	import CardContent from '$lib/ui/CardContent.svelte';
 	import { cn } from '$lib/utils';
+	import { t } from '$lib/stores';
 	import { mockLogs, type LogEntry } from '$lib/mocks/logs';
 
 	let logs: LogEntry[] = mockLogs;
@@ -32,13 +33,16 @@
 </script>
 
 <PageBody>
-	<PageHeader title="Logs" description="View system and application logs" />
+	<PageHeader
+		title={t('logs.title', 'Logs')}
+		description={t('logs.description', 'View system and application logs')}
+	/>
 
 	<DataToolbar>
 		<svelte:fragment slot="search">
 			<input
 				type="text"
-				placeholder="Search logs..."
+				placeholder={t('logs.search_placeholder', 'Search logs...')}
 				bind:value={searchQuery}
 				class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-sm"
 			/>
@@ -47,19 +51,19 @@
 			<select
 				class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 			>
-				<option value="">All Levels</option>
-				<option value="error">Error</option>
-				<option value="warn">Warning</option>
-				<option value="info">Info</option>
-				<option value="debug">Debug</option>
+				<option value="">{t('logs.filter.all_levels', 'All Levels')}</option>
+				<option value="error">{t('logs.level.error', 'Error')}</option>
+				<option value="warn">{t('logs.level.warn', 'Warning')}</option>
+				<option value="info">{t('logs.level.info', 'Info')}</option>
+				<option value="debug">{t('logs.level.debug', 'Debug')}</option>
 			</select>
 		</svelte:fragment>
 	</DataToolbar>
 
 	{#if logs.length === 0}
 		<EmptyState
-			title="No logs found"
-			description="Logs will appear here as events occur in the system."
+			title={t('logs.empty.title', 'No logs found')}
+			description={t('logs.empty.description', 'Logs will appear here as events occur in the system.')}
 		/>
 	{:else}
 		<Card>
@@ -68,11 +72,21 @@
 					<table class="w-full">
 						<thead>
 							<tr class="border-b">
-								<th class="px-6 py-3 text-left text-sm font-medium">Timestamp</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Level</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Source</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Message</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Workspace</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('logs.table.timestamp', 'Timestamp')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('logs.table.level', 'Level')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('logs.table.source', 'Source')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('logs.table.message', 'Message')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('logs.table.workspace', 'Workspace')}
+								</th>
 							</tr>
 						</thead>
 						<tbody>

@@ -9,11 +9,13 @@
 		setRuntimeLocale,
 		t
 	} from '$lib/stores';
+	import { setRtlLanguages } from '$lib/stores/direction';
 	import type { Workspace } from '$lib/stores/workspace';
 	import { cn } from '$lib/utils';
 	import { Globe, ChevronDown, LogOut, User, Sun, Moon, Monitor } from 'lucide-svelte';
 	import Button from '$lib/ui/Button.svelte';
 	import { goto, invalidateAll } from '$app/navigation';
+	import { dev } from '$app/environment';
 	import type { Session } from '@supabase/supabase-js';
 
 	export let session: Session | null = null;
@@ -35,7 +37,14 @@
 		if (!session) return;
 		if (!code) return;
 
-		// Persist locale selection server-side (strict: must exist in workspace languages)
+		const oldLocale = $locale;
+		if (oldLocale === code) return; // No change needed
+
+		if (dev) {
+			console.log(`[i18n] Locale change: ${oldLocale} → ${code}`);
+		}
+
+		// Step 1: Persist locale selection server-side (strict: must exist in workspace languages)
 		try {
 			const res = await fetch('/api/i18n/locale', {
 				method: 'POST',
@@ -45,27 +54,48 @@
 
 			if (!res.ok) {
 				const msg = await res.text().catch(() => '');
-				console.warn('Failed to set locale cookie', msg);
+				console.warn('[i18n] Failed to set locale cookie', msg);
 				return;
 			}
+
+			const result = await res.json().catch(() => ({ ok: false }));
+			if (!result.ok) {
+				console.warn('[i18n] Locale endpoint returned error', result);
+				return;
+			}
+
+			if (dev) {
+				console.log(`[i18n] Locale cookie set successfully: ${code}`);
+			}
 		} catch (err) {
-			console.warn('Failed to set locale cookie', err);
+			console.warn('[i18n] Failed to set locale cookie', err);
 			return;
 		}
 
-		// Update locale first
+		// Step 2: Update RTL languages based on selected language
+		const selectedLang = languages.find((l) => l.code === code);
+		if (selectedLang) {
+			const rtlCodes = languages.filter((l) => l.is_rtl).map((l) => l.code);
+			setRtlLanguages(rtlCodes);
+			if (dev) {
+				console.log(`[i18n] RTL languages updated:`, rtlCodes);
+			}
+		}
+
+		// Step 3: Update locale stores
 		locale.set(code);
 		setRuntimeLocale(code);
-		
-		// Force reload messages with new locale (bypasses cache)
-		// This will clear localStorage cache and fetch fresh messages
+
+		// Step 4: Clear old locale cache and reload messages
+		// loadMessages will handle cache clearing internally
 		await loadMessages(code);
-		
-		// Small delay to ensure state update propagates
-		await new Promise(resolve => setTimeout(resolve, 50));
-		
-		// Invalidate all routes to force re-render with new translations
+
+		// Step 5: Invalidate all routes to force re-render with new translations
 		await invalidateAll();
+
+		if (dev) {
+			console.log(`[i18n] Locale change complete: ${code}`);
+		}
 	}
 
 	async function handleLogout() {

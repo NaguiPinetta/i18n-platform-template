@@ -49,17 +49,26 @@
 1. Receive translated CSV from translation tool
 2. Navigate to Settings → i18n → Import
 3. Upload CSV file
-4. Choose conflict policy:
-   - **Fill Missing**: Only update empty translations (preserves existing work)
+4. **Column Mapping** (if needed):
+   - System auto-detects language columns (2-3 letter codes) and common field names
+   - Manually map CSV columns to system fields:
+     - Required: `key` (translation key identifier)
+     - Required: `en` (English fallback value)
+     - Optional: `module`, `type`, `screen`, `context`, `screenshot_ref`, `max_chars`
+     - Language columns: Map to language codes (e.g., `es`, `fr`, `ar`)
+   - Supports flexible CSV formats with different column names
+5. Choose conflict policy:
+   - **Fill Missing**: Only update empty translations (preserves existing work) - **Recommended**
    - **Overwrite**: Replace all translations with CSV values
-5. Preview changes before importing
-6. Confirm import to apply changes
-7. System will:
-   - Create missing languages automatically
-   - Create missing keys
+6. Preview changes before importing (shows what will be created/updated)
+7. Confirm import to apply changes
+8. System will:
+   - Create missing languages automatically from CSV columns
+   - Create missing keys with metadata
    - Update key metadata if provided
    - Upsert translations based on conflict policy
    - Set translation status to 'draft' for new/updated translations
+   - **Clear cache and reload translations** - UI updates immediately
 
 ## Runtime i18n MVP (DB-driven)
 
@@ -78,7 +87,8 @@ This template includes a minimal runtime translation layer that loads translatio
   - Reads `locale` cookie (defaults to `en`)
   - Returns `{ messages: Record<string,string>, locale: string }`
   - Omits missing/empty translations so the client can fall back
-  - Cache header: `Cache-Control: private, max-age=60`
+  - Cache header: `Cache-Control: no-store, must-revalidate` (prevents stale translations)
+  - Supports cache-busting query parameter `?t=timestamp`
 
 - `POST /api/i18n/locale`
   - Auth required
@@ -111,10 +121,23 @@ Solution: when developers replace UI strings with `t('key', 'English fallback')`
     - Only overwrites existing `en` values when `overwrite_en: true`
   - Returns counts: `inserted_keys`, `updated_keys`, `en_values_written`
 
+### Cache Management
+
+- **Client-side caching**: Messages are cached in `localStorage` keyed by `(workspaceId, locale)`
+- **Cache invalidation**: Automatically clears cache on:
+  - Locale change
+  - Workspace change
+  - Successful import
+- **Force refresh**: Uses cache-busting timestamps and `no-store` headers to ensure fresh data
+- **Immediate UI updates**: Uses SvelteKit's `invalidate()` to force re-renders after state changes
+
 ### Fallback behavior
 
 - If Supabase is not configured, the app stays usable and displays English fallback strings.
 - If a translation is missing, the client shows the provided English fallback (or the key itself).
+- **Visual highlighting**: Optional highlighting of untranslated keys (yellow in dark mode, red in light mode)
+  - Toggle in Settings → i18n → "Highlight untranslated keys"
+  - Helps identify missing translations during development
 
 ## RTL Rules
 
@@ -136,9 +159,31 @@ Solution: when developers replace UI strings with `t('key', 'English fallback')`
 
 ## Translation Workflow
 
-1. **Development**: Add new translation keys in code
-2. **Export**: Generate CSV with all keys
+1. **Development**: 
+   - Replace UI strings with `t('key.name', 'English fallback')`
+   - Navigate through app to collect keys in registry
+   - Sync registry to workspace (owner/admin only)
+2. **Export**: Generate CSV with all keys and current translations
 3. **Translation**: Send CSV to translation service (Omniglot)
-4. **Import**: Receive translated CSV and import into app
-5. **Verification**: Test translations in UI
-6. **Deployment**: Deploy updated translations
+4. **Import**: 
+   - Upload translated CSV
+   - Map columns if needed (flexible format support)
+   - Preview and confirm import
+   - UI updates immediately
+5. **Verification**: 
+   - Switch language in header selector
+   - Navigate through app to verify translations
+   - Use "Highlight untranslated" toggle to identify missing translations
+6. **Deployment**: Translations are stored in database, no deployment needed
+
+## Key Naming Conventions
+
+Following Phase 5 completion, all UI microcopy uses consistent key naming:
+
+- `nav.*` - Navigation labels (e.g., `nav.dashboard`, `nav.projects`)
+- `page.<route>.<section>.*` - Page titles/descriptions/buttons (e.g., `page.projects.title`, `page.logs.empty.title`)
+- `dialog.<name>.*` - Modal/dialog strings (e.g., `dialog.add_key.title`)
+- `form.<name>.*` - Form labels/placeholders/errors (e.g., `form.login.email_placeholder`)
+- `common.*` - Reusable strings (e.g., `common.save`, `common.cancel`, `common.delete`)
+- `i18n.*` - i18n management UI (e.g., `i18n.keys.add`, `i18n.import.title`)
+- `settings.*` - Settings pages (e.g., `settings.users.title`, `settings.integrations.title`)

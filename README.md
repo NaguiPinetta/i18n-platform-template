@@ -149,12 +149,14 @@ TRANSLATION_SERVICE_API_KEY=your_api_key
 
 ## i18n Pipeline Quickstart
 
-The template includes a complete translation management workflow:
+The template includes a complete translation management workflow with automatic key collection, CSV export/import, and runtime language switching.
 
 ### Runtime language switching
 
 - Select the active language from the header language selector (per workspace)
+- Language changes are **immediate** - no page reload required
 - The app loads translations from Supabase at runtime and falls back to English if translations are missing
+- RTL languages (Arabic, Hebrew, etc.) automatically adjust layout direction
 
 ### Auto-collect microcopy keys (recommended)
 
@@ -192,18 +194,25 @@ To avoid “empty exports” during development, use `t('some.key', 'English fal
 ### 5. Import CSV
 - Navigate to **Settings → i18n → Import**
 - Upload the translated CSV file
+- **Column Mapping** (if needed): Map CSV columns to system fields (key, module, type, languages)
+  - System auto-detects language columns and common field names
+  - Manually adjust mappings if your CSV has different column names
 - Choose conflict policy:
   - **Fill Missing**: Only update empty translations (recommended)
   - **Overwrite**: Replace all existing translations
 - Preview changes before importing
 - Confirm to apply translations
+- **UI updates immediately** after import - no page reload needed
 
 The pipeline automatically handles:
-- Workspace-scoped translations (multi-tenant support)
-- Automatic language creation from CSV columns
-- Key metadata updates
-- Translation status tracking (draft/review/approved)
-- RTL language detection and layout adjustments
+- **Workspace-scoped translations** (multi-tenant support)
+- **Automatic language creation** from CSV columns
+- **Key metadata updates** (module, type, screen, context, etc.)
+- **Flexible column mapping** for various CSV formats
+- **Translation status tracking** (draft/review/approved)
+- **RTL language detection** and automatic layout adjustments
+- **Cache invalidation** - translations update immediately after import
+- **Visual highlighting** of untranslated keys (optional, toggleable in settings)
 
 ## Documentation
 
@@ -214,6 +223,13 @@ For detailed specifications and guidelines, see the `/specs` folder:
 - **[i18n Pipeline Specification](./specs/i18n-pipeline.md)** - Translation workflow, CSV contract, and RTL rules
 - **[Data Model Specification](./specs/data-model.md)** - Supabase schema and RLS policies
 - **[Roadmap](./specs/roadmap.md)** - Development phases and milestones
+
+**Recent Updates:**
+- ✅ **Phase 5 Complete**: All UI microcopy migrated to i18n keys
+- ✅ **Column Mapping**: Flexible CSV import with automatic column detection
+- ✅ **Immediate Updates**: Language switching and imports update UI instantly
+- ✅ **Visual Highlighting**: Optional highlighting of untranslated keys
+- See **[Phase 5 Verification](./PHASE5_VERIFICATION.md)** for testing checklist
 
 ## Security
 

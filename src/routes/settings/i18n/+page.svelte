@@ -96,23 +96,30 @@
 		const session = $page.data.session;
 		if (!session) return;
 
-		// Owner check via workspace row
+		// Owner check via workspace row (primary check - most reliable)
 		if (($currentWorkspace as any).owner_id && session.user?.id === ($currentWorkspace as any).owner_id) {
 			canSyncKeys = true;
 			return;
 		}
 
-		// Fallback: check membership role
-		const { data, error } = await supabase
-			.from('workspace_members')
-			.select('role')
-			.eq('workspace_id', $currentWorkspace.id)
-			.eq('user_id', session.user.id)
-			.single();
+		// Fallback: check membership role (may fail due to RLS/foreign key issues, but we try)
+		try {
+			const { data, error } = await supabase
+				.from('workspace_members')
+				.select('role')
+				.eq('workspace_id', $currentWorkspace.id)
+				.eq('user_id', session.user.id)
+				.single();
 
-		if (error) return;
-		const role = (data as any)?.role;
-		canSyncKeys = role === 'owner' || role === 'admin';
+			if (!error && data) {
+				const role = (data as any)?.role;
+				canSyncKeys = role === 'owner' || role === 'admin';
+			}
+			// If error, canSyncKeys stays false (user is not admin/member or query failed)
+		} catch (err) {
+			// Silently fail - user is not admin/member or there's a query issue
+			console.debug('Could not check workspace membership for sync permission:', err);
+		}
 	}
 
 	async function syncRegistryToWorkspace() {
@@ -120,13 +127,21 @@
 		syncError = '';
 		syncSuccess = '';
 
-		if (!canSyncKeys) {
-			syncError = t('errors.unauthorized', 'Only workspace owners/admins can sync keys.');
+		const entries = Array.from($missingKeys.values());
+		if (entries.length === 0) {
+			syncError = t('i18n.registry.no_keys', 'No keys to sync');
 			return;
 		}
 
-		const entries = Array.from($missingKeys.values());
-		if (entries.length === 0) return;
+		// Check permissions - but allow sync attempt even if check failed (server will validate)
+		if (!canSyncKeys) {
+			// Re-check permissions before sync (might have changed)
+			await loadCanSync();
+			if (!canSyncKeys) {
+				syncError = t('errors.unauthorized', 'Only workspace owners/admins can sync keys.');
+				return;
+			}
+		}
 
 		syncingKeys = true;
 		try {
@@ -138,9 +153,9 @@
 						key: e.key,
 						module: e.module || 'ui',
 						type: e.type || 'microcopy',
-						screen: e.screen,
-						context: e.context,
-						screenshot_ref: e.screenshot_ref,
+						screen: e.screen || null,
+						context: e.context || null,
+						screenshot_ref: e.screenshot_ref || null,
 						max_chars: e.max_chars ?? null,
 						fallback_en: e.fallback
 					}))
@@ -148,8 +163,9 @@
 			});
 
 			if (!res.ok) {
-				const msg = await res.text().catch(() => '');
-				throw new Error(msg || `Sync failed (${res.status})`);
+				const errorData = await res.json().catch(() => ({}));
+				const errorMsg = errorData.error || errorData.message || `Sync failed (${res.status})`;
+				throw new Error(errorMsg);
 			}
 
 			const data = await res.json();
@@ -160,6 +176,7 @@
 				`Synced keys. Inserted: ${data.inserted_keys || 0}, Updated: ${data.updated_keys || 0}, EN filled: ${data.en_values_written || 0}.`
 			);
 		} catch (err) {
+			console.error('Sync error:', err);
 			syncError = err instanceof Error ? err.message : t('errors.generic', 'Failed to sync keys');
 		} finally {
 			syncingKeys = false;
@@ -169,6 +186,12 @@
 	function downloadRegistryCsv() {
 		if (!browser) return;
 		const entries = Array.from($missingKeys.values());
+		
+		if (entries.length === 0) {
+			console.warn('No keys to download');
+			return;
+		}
+
 		const header = ['key', 'module', 'type', 'screen', 'context', 'screenshot_ref', 'max_chars', 'en'];
 
 		function esc(v: unknown): string {
@@ -202,8 +225,11 @@
 		a.download = `i18n_registry_${new Date().toISOString().slice(0, 10)}.csv`;
 		document.body.appendChild(a);
 		a.click();
-		a.remove();
-		URL.revokeObjectURL(url);
+		// Clean up after a short delay to ensure download starts
+		setTimeout(() => {
+			a.remove();
+			URL.revokeObjectURL(url);
+		}, 100);
 	}
 </script>
 
@@ -399,6 +425,7 @@
 								variant="outline"
 								disabled={$missingKeys.size === 0}
 								on:click={downloadRegistryCsv}
+								title={$missingKeys.size === 0 ? t('i18n.registry.no_keys', 'No keys to download') : ''}
 							>
 								<TranslatedText
 									key="i18n.registry.download_csv"
@@ -406,9 +433,15 @@
 								/>
 							</Button>
 							<Button
-								disabled={!canSyncKeys || syncingKeys || $missingKeys.size === 0}
+								disabled={syncingKeys || $missingKeys.size === 0}
 								on:click={syncRegistryToWorkspace}
-								title={!canSyncKeys ? t('errors.unauthorized', 'Only owners/admins can sync keys') : ''}
+								title={
+									!canSyncKeys
+										? t('errors.unauthorized', 'Only owners/admins can sync keys')
+										: $missingKeys.size === 0
+											? t('i18n.registry.no_keys', 'No keys to sync')
+											: ''
+								}
 							>
 								{#if syncingKeys}
 									<TranslatedText key="common.syncing" fallback="Syncing..." />
@@ -417,6 +450,14 @@
 								{/if}
 							</Button>
 						</div>
+						{#if !canSyncKeys && $missingKeys.size > 0}
+							<p class="mt-2 text-xs text-muted-foreground">
+								{t(
+									'i18n.registry.sync_hint',
+									'Note: Only workspace owners and admins can sync keys. The sync button will be enabled once permissions are verified.'
+								)}
+							</p>
+						{/if}
 					</div>
 
 					{#if syncError}

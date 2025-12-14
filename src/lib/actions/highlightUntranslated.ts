@@ -1,16 +1,18 @@
 import type { Action } from 'svelte/action';
 import { get } from 'svelte/store';
-import { i18n } from '$lib/stores/i18n';
+import { i18n, highlightUntranslated as globalHighlightSetting } from '$lib/stores/i18n';
 
 interface HighlightUntranslatedParams {
 	translationKey: string;
 	fallback?: string;
-	enabled?: boolean;
+	enabled?: boolean; // undefined = use global setting, true/false = override
 }
 
 /**
  * Svelte action to automatically highlight text when translation is missing
  * Usage: <span use:highlightUntranslated={{translationKey: 'some.key', fallback: 'English text'}}>
+ * 
+ * Respects global highlightUntranslated setting unless explicitly overridden with enabled: true/false
  */
 export const highlightUntranslated: Action<HTMLElement, HighlightUntranslatedParams> = (
 	node,
@@ -18,11 +20,16 @@ export const highlightUntranslated: Action<HTMLElement, HighlightUntranslatedPar
 ) => {
 	if (!params) return;
 
-	const { translationKey, fallback, enabled = true } = params;
+	let { translationKey, fallback, enabled } = params;
 
 	function updateHighlight() {
-		if (!enabled) {
+		// Determine if highlighting should be enabled
+		// enabled === undefined means use global setting
+		const shouldHighlight = enabled !== undefined ? enabled : get(globalHighlightSetting);
+
+		if (!shouldHighlight) {
 			node.classList.remove('untranslated');
+			node.removeAttribute('title');
 			return;
 		}
 
@@ -42,19 +49,27 @@ export const highlightUntranslated: Action<HTMLElement, HighlightUntranslatedPar
 	// Initial check
 	updateHighlight();
 
-	// Subscribe to i18n store changes
-	const unsubscribe = i18n.subscribe(() => {
+	// Subscribe to both i18n store and global highlight setting changes
+	const unsubscribeI18n = i18n.subscribe(() => {
+		updateHighlight();
+	});
+
+	const unsubscribeHighlight = globalHighlightSetting.subscribe(() => {
 		updateHighlight();
 	});
 
 	return {
 		update(newParams: HighlightUntranslatedParams) {
-			Object.assign(params, newParams);
+			translationKey = newParams.translationKey ?? translationKey;
+			fallback = newParams.fallback ?? fallback;
+			enabled = newParams.enabled !== undefined ? newParams.enabled : enabled;
 			updateHighlight();
 		},
 		destroy() {
-			unsubscribe();
+			unsubscribeI18n();
+			unsubscribeHighlight();
 			node.classList.remove('untranslated');
+			node.removeAttribute('title');
 		}
 	};
 };

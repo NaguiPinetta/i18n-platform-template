@@ -33,6 +33,64 @@ export function setRuntimeLocale(locale: string) {
 	state.update((s) => ({ ...s, locale }));
 }
 
+/**
+ * Clear all cached messages for a specific workspace
+ */
+export function clearWorkspaceCache(workspaceId: string | null): void {
+	if (!browser || !workspaceId) return;
+
+	try {
+		// Clear all localStorage entries for this workspace
+		for (let i = localStorage.length - 1; i >= 0; i--) {
+			const key = localStorage.key(i);
+			if (key && key.startsWith(`i18n_messages:${workspaceId}:`)) {
+				localStorage.removeItem(key);
+				if (dev) {
+					console.log(`[i18n] Cleared workspace cache: ${key}`);
+				}
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	// Reset in-memory cache tracking
+	lastLoadKey = null;
+	inFlight = null;
+
+	// Clear state messages
+	state.update((s) => ({ ...s, messages: {} }));
+}
+
+/**
+ * Clear all cached messages (for all workspaces)
+ */
+export function clearAllCache(): void {
+	if (!browser) return;
+
+	try {
+		// Clear all i18n-related localStorage entries
+		for (let i = localStorage.length - 1; i >= 0; i--) {
+			const key = localStorage.key(i);
+			if (key && key.startsWith('i18n_messages:')) {
+				localStorage.removeItem(key);
+				if (dev) {
+					console.log(`[i18n] Cleared cache: ${key}`);
+				}
+			}
+		}
+	} catch {
+		// ignore
+	}
+
+	// Reset in-memory cache tracking
+	lastLoadKey = null;
+	inFlight = null;
+
+	// Clear state messages
+	state.update((s) => ({ ...s, messages: {} }));
+}
+
 export async function loadMessages(forceLocale?: string): Promise<void> {
 	if (!browser) return;
 
@@ -162,7 +220,34 @@ export async function loadMessages(forceLocale?: string): Promise<void> {
 }
 
 // Global setting to enable/disable highlighting of untranslated keys
-export const highlightUntranslated = writable<boolean>(true);
+// Persist to localStorage
+const HIGHLIGHT_STORAGE_KEY = 'i18n_highlight_untranslated';
+
+function getInitialHighlightSetting(): boolean {
+	if (!browser) return true;
+	try {
+		const stored = localStorage.getItem(HIGHLIGHT_STORAGE_KEY);
+		if (stored !== null) {
+			return stored === 'true';
+		}
+	} catch {
+		// ignore
+	}
+	return true; // Default to enabled
+}
+
+export const highlightUntranslated = writable<boolean>(getInitialHighlightSetting());
+
+// Persist to localStorage when changed
+if (browser) {
+	highlightUntranslated.subscribe((value) => {
+		try {
+			localStorage.setItem(HIGHLIGHT_STORAGE_KEY, value.toString());
+		} catch {
+			// ignore
+		}
+	});
+}
 
 // Export t as a function that reads from the store
 // IMPORTANT: This function must be called within a Svelte component context to be reactive

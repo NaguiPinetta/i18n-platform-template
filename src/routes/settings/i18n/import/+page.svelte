@@ -11,9 +11,12 @@
 	import DialogDescription from '$lib/ui/DialogDescription.svelte';
 	import LoadingState from '$lib/ui/LoadingState.svelte';
 	import { page } from '$app/stores';
-	import { currentWorkspace } from '$lib/stores/workspace';
+	import { currentWorkspace, currentWorkspaceId } from '$lib/stores/workspace';
 	import { Upload, CheckCircle2, XCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
+	import { invalidate, invalidateAll } from '$app/navigation';
+	import { loadMessages, clearWorkspaceCache } from '$lib/stores';
 	import { t } from '$lib/stores';
 
 	interface ImportPreview {
@@ -251,6 +254,19 @@
 				languages: {}
 			};
 			if (fileInput) fileInput.value = '';
+
+			// Clear cache and reload messages after successful import
+			if (browser && $currentWorkspaceId) {
+				// Clear workspace cache to force fresh fetch
+				clearWorkspaceCache($currentWorkspaceId);
+				
+				// Reload messages for current locale
+				await loadMessages();
+				
+				// Invalidate API endpoint and all routes to show new translations immediately
+				await invalidate('/api/i18n/messages.json');
+				await invalidateAll();
+			}
 		} catch (error) {
 			console.error('Import error:', error);
 			alert(t('i18n.import.import_error', 'Failed to import CSV: ') + (error as Error).message);

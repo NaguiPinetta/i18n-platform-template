@@ -1,4 +1,5 @@
 import type { LayoutServerLoad } from './$types';
+import { dev } from '$app/environment';
 
 export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 	const session = locals.session;
@@ -74,9 +75,11 @@ export const load: LayoutServerLoad = async ({ locals, cookies }) => {
 			}
 		}
 
-		console.log('User ID:', session.user.id);
-		console.log('Owned workspaces:', ownedWorkspaces?.length || 0, ownedWorkspaces);
-		console.log('Member workspaces:', memberWorkspaces?.length || 0, memberWorkspaces);
+		if (dev) {
+			console.log('User ID:', session.user.id);
+			console.log('Owned workspaces:', ownedWorkspaces?.length || 0, ownedWorkspaces);
+			console.log('Member workspaces:', memberWorkspaces?.length || 0, memberWorkspaces);
+		}
 
 		const allWorkspaces = [
 			...(ownedWorkspaces || []),

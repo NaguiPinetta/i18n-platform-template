@@ -10,7 +10,8 @@
 
 	$: text = t(key, fallback);
 	$: shouldHighlight = highlightMissing !== undefined ? highlightMissing : $highlightSetting;
-	$: isFallback = shouldHighlight && !hasTranslation(key) && fallback !== undefined;
+	$: hasTranslationValue = hasTranslation(key);
+	$: isFallback = shouldHighlight && !hasTranslationValue && fallback !== undefined;
 </script>
 
 <svelte:element

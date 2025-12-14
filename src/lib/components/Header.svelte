@@ -7,15 +7,18 @@
 		effectiveTheme,
 		loadMessages,
 		setRuntimeLocale,
+		clearWorkspaceCache,
+		clearAllCache,
 		t
 	} from '$lib/stores';
+	import { get } from 'svelte/store';
 	import { setRtlLanguages } from '$lib/stores/direction';
 	import type { Workspace } from '$lib/stores/workspace';
 	import { cn } from '$lib/utils';
 	import { Globe, ChevronDown, LogOut, User, Sun, Moon, Monitor } from 'lucide-svelte';
 	import Button from '$lib/ui/Button.svelte';
-	import { goto, invalidateAll } from '$app/navigation';
-	import { dev } from '$app/environment';
+	import { goto, invalidateAll, invalidate } from '$app/navigation';
+	import { dev, browser } from '$app/environment';
 	import type { Session } from '@supabase/supabase-js';
 
 	export let session: Session | null = null;
@@ -82,16 +85,25 @@
 			}
 		}
 
-		// Step 3: Update locale stores
+		// Step 3: Clear old locale cache before updating
+		// Clear localStorage cache for old locale
+		const workspaceId = get(currentWorkspaceId);
+		if (workspaceId) {
+			clearWorkspaceCache(workspaceId);
+		}
+
+		// Step 4: Update locale stores
 		locale.set(code);
 		setRuntimeLocale(code);
 
-		// Step 4: Clear old locale cache and reload messages
-		// loadMessages will handle cache clearing internally
+		// Step 5: Reload messages with new locale (force fresh fetch)
 		await loadMessages(code);
 
-		// Step 5: Invalidate all routes to force re-render with new translations
-		await invalidateAll();
+		// Step 6: Invalidate API endpoint and all routes
+		if (browser) {
+			await invalidate('/api/i18n/messages.json');
+			await invalidateAll();
+		}
 
 		if (dev) {
 			console.log(`[i18n] Locale change complete: ${code}`);

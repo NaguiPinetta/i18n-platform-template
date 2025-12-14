@@ -3,20 +3,21 @@
 	import { locale, dir, setRtlLanguages } from '$lib/stores/direction';
 	import { workspaces, currentWorkspaceId } from '$lib/stores/workspace';
 	import { effectiveTheme } from '$lib/stores/theme';
-	import { loadMessages, setRuntimeLocale } from '$lib/stores/i18n';
+	import { loadMessages, setRuntimeLocale, clearWorkspaceCache, clearAllCache } from '$lib/stores/i18n';
 	import Header from '$lib/components/Header.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import SupabaseBanner from '$lib/components/SupabaseBanner.svelte';
 	import { onMount } from 'svelte';
 	import { browser, dev } from '$app/environment';
 	import { page } from '$app/stores';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, invalidate } from '$app/navigation';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
 
 	let localeInitialized = false;
 	let lastMessagesKey = '';
+	let lastWorkspaceId: string | null = null;
 
 	let lastSyncedWorkspaceId: string | null = null;
 
@@ -80,31 +81,51 @@
 		const activeLocale = data.currentLocale;
 		const key = `${$currentWorkspaceId}:${activeLocale}`;
 		const pageChanged = $page.url.pathname !== lastPagePath;
+		const workspaceChanged = lastWorkspaceId !== null && $currentWorkspaceId !== lastWorkspaceId;
+		const localeChanged = activeLocale !== lastDataLocale;
 		
 		// Reload messages when:
 		// 1. Locale from server changes
 		// 2. Page changes (navigation)
 		// 3. Workspace changes
-		if (key !== lastMessagesKey || activeLocale !== lastDataLocale || pageChanged) {
+		if (key !== lastMessagesKey || localeChanged || pageChanged || workspaceChanged) {
+			// Update tracking variables
+			const oldWorkspaceId = lastWorkspaceId;
+			lastWorkspaceId = $currentWorkspaceId;
 			lastMessagesKey = key;
 			lastDataLocale = activeLocale;
 			lastPagePath = $page.url.pathname;
+			
+			// Clear cache if locale or workspace changed
+			if (workspaceChanged && oldWorkspaceId) {
+				// Workspace changed - clear all cache
+				if (dev) {
+					console.log(`[i18n Layout] Workspace changed: ${oldWorkspaceId} → ${$currentWorkspaceId}`);
+				}
+				clearAllCache();
+			} else if (localeChanged) {
+				// Locale changed - clear workspace cache for old locale
+				if (dev) {
+					console.log(`[i18n Layout] Locale changed: ${lastDataLocale} → ${activeLocale}`);
+				}
+				clearWorkspaceCache($currentWorkspaceId);
+			}
+
 			// Ensure locale store is synced
 			if (activeLocale !== $locale) {
 				locale.set(activeLocale);
 				setRuntimeLocale(activeLocale);
 			}
+
 			// Load messages with the locale from server (source of truth)
-			// Force reload to bypass cache when locale changes
-			const shouldForce = activeLocale !== lastDataLocale;
+			// Force reload to bypass cache when locale or workspace changes
+			const shouldForce = localeChanged || workspaceChanged;
 			loadMessages(shouldForce ? activeLocale : undefined).then(() => {
-				// Invalidate all routes after messages load to force re-render
-				// This ensures all components re-evaluate t() calls with new messages
+				// Invalidate API endpoint and all routes after messages load
 				if (browser) {
-					// Use a small delay to ensure state update completes
-					setTimeout(() => {
+					invalidate('/api/i18n/messages.json').then(() => {
 						invalidateAll();
-					}, 0);
+					});
 				}
 			});
 		}

@@ -9,8 +9,9 @@
 	import LoadingState from '$lib/ui/LoadingState.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { browser } from '$app/environment';
-	import { currentWorkspace } from '$lib/stores/workspace';
+	import { browser, dev } from '$app/environment';
+	import { currentWorkspace, currentWorkspaceId } from '$lib/stores/workspace';
+	import { locale } from '$lib/stores';
 	import { createClient } from '$lib/supabase/client';
 	import { onMount } from 'svelte';
 	import { missingKeys, clearRegistry } from '$lib/stores/i18n-registry';
@@ -27,6 +28,17 @@
 	let syncError = '';
 	let syncSuccess = '';
 
+	// Diagnostics data (dev-only)
+	let diagnosticsLoading = false;
+	let diagnosticsData: {
+		workspaceId: string | null;
+		currentLocale: string;
+		languagesCount: number;
+		keysCount: number;
+		translationsCount: number;
+		missingTranslations: Array<{ key: string; fallback: string }>;
+	} | null = null;
+
 	$: supabaseConfigured = $page.data.supabaseConfigured;
 	$: hasWorkspace = !!$currentWorkspace;
 
@@ -34,10 +46,18 @@
 		if (supabaseConfigured && hasWorkspace) {
 			loadStats();
 			loadCanSync();
+			if (dev) {
+				loadDiagnostics();
+			}
 		} else {
 			loading = false;
 		}
 	});
+
+	// Reload diagnostics when locale or workspace changes (dev-only)
+	$: if (dev && supabaseConfigured && hasWorkspace && $locale) {
+		loadDiagnostics();
+	}
 
 	$: if (supabaseConfigured && hasWorkspace) {
 		// Re-evaluate permissions when workspace changes
@@ -84,6 +104,99 @@
 		}
 
 		loading = false;
+	}
+
+	async function loadDiagnostics() {
+		if (!dev || !browser || !supabase || !$currentWorkspace) {
+			diagnosticsData = null;
+			return;
+		}
+
+		diagnosticsLoading = true;
+		const currentLocaleValue = $locale || $page.data.currentLocale || 'en';
+
+		try {
+			// Get language ID for current locale
+			const { data: language } = await supabase
+				.from('i18n_languages')
+				.select('id')
+				.eq('workspace_id', $currentWorkspace.id)
+				.eq('code', currentLocaleValue)
+				.single();
+
+			// Get all keys
+			const { data: allKeys } = await supabase
+				.from('i18n_keys')
+				.select('id, key')
+				.eq('workspace_id', $currentWorkspace.id);
+
+			// Get translations for current locale
+			let translationsCount = 0;
+			let missingTranslations: Array<{ key: string; fallback: string }> = [];
+
+			if (language?.id && allKeys) {
+				const { data: translations } = await supabase
+					.from('i18n_translations')
+					.select('key_id, value')
+					.eq('workspace_id', $currentWorkspace.id)
+					.eq('language_id', language.id)
+					.not('value', 'is', null)
+					.neq('value', '');
+
+				translationsCount = translations?.length || 0;
+
+				// Build map of key_id -> value
+				const translationMap = new Map<string, string>();
+				if (translations) {
+					for (const t of translations) {
+						if (t.value) {
+							translationMap.set(t.key_id, t.value);
+						}
+					}
+				}
+
+				// Find missing translations (first 10)
+				const keyIdToKey = new Map<string, string>();
+				for (const k of allKeys) {
+					keyIdToKey.set(k.id, k.key);
+				}
+
+				for (const key of allKeys.slice(0, 20)) {
+					// Check up to 20 keys to find 10 missing ones
+					if (missingTranslations.length >= 10) break;
+
+					const hasTranslation = translationMap.has(key.id);
+					if (!hasTranslation) {
+						// Try to get fallback from registry or use key as fallback
+						const registryEntry = $missingKeys.get(key.key);
+						missingTranslations.push({
+							key: key.key,
+							fallback: registryEntry?.fallback || key.key
+						});
+					}
+				}
+			}
+
+			diagnosticsData = {
+				workspaceId: $currentWorkspaceId,
+				currentLocale: currentLocaleValue,
+				languagesCount,
+				keysCount,
+				translationsCount,
+				missingTranslations
+			};
+		} catch (err) {
+			console.error('Error loading diagnostics:', err);
+			diagnosticsData = null;
+		} finally {
+			diagnosticsLoading = false;
+		}
+	}
+
+	function openMessagesJson() {
+		if (!browser) return;
+		const url = `/api/i18n/messages.json?ts=${Date.now()}`;
+		window.open(url, '_blank');
 	}
 
 	async function loadCanSync() {
@@ -473,5 +586,91 @@
 				</CardContent>
 			</Card>
 		</div>
+
+		<!-- Dev-only Diagnostics Panel -->
+		{#if dev && supabaseConfigured && hasWorkspace}
+			<div class="mt-6">
+				<Card>
+					<CardHeader>
+						<h3 class="text-lg font-semibold">🔧 i18n Diagnostics (Dev Only)</h3>
+					</CardHeader>
+					<CardContent>
+						{#if diagnosticsLoading}
+							<p class="text-sm text-muted-foreground">Loading diagnostics...</p>
+						{:else if diagnosticsData}
+							<div class="space-y-4">
+								<div class="grid gap-4 md:grid-cols-2">
+									<div>
+										<p class="text-xs font-medium text-muted-foreground">Workspace ID</p>
+										<p class="text-sm font-mono break-all">{diagnosticsData.workspaceId || 'Not set'}</p>
+									</div>
+									<div>
+										<p class="text-xs font-medium text-muted-foreground">Current Locale</p>
+										<p class="text-sm font-mono">{diagnosticsData.currentLocale}</p>
+									</div>
+								</div>
+
+								<div class="grid gap-4 md:grid-cols-3">
+									<div>
+										<p class="text-xs font-medium text-muted-foreground">Languages</p>
+										<p class="text-2xl font-bold">{diagnosticsData.languagesCount}</p>
+									</div>
+									<div>
+										<p class="text-xs font-medium text-muted-foreground">Total Keys</p>
+										<p class="text-2xl font-bold">{diagnosticsData.keysCount}</p>
+									</div>
+									<div>
+										<p class="text-xs font-medium text-muted-foreground">
+											Translations ({diagnosticsData.currentLocale})
+										</p>
+										<p class="text-2xl font-bold">{diagnosticsData.translationsCount}</p>
+										{#if diagnosticsData.keysCount > 0}
+											<p class="text-xs text-muted-foreground">
+												{Math.round(
+													(diagnosticsData.translationsCount / diagnosticsData.keysCount) * 100
+												)}%
+												coverage
+											</p>
+										{/if}
+									</div>
+								</div>
+
+								{#if diagnosticsData.missingTranslations.length > 0}
+									<div>
+										<p class="mb-2 text-xs font-medium text-muted-foreground">
+											Missing Translations Sample ({diagnosticsData.missingTranslations.length} of{' '}
+											{diagnosticsData.keysCount - diagnosticsData.translationsCount} missing)
+										</p>
+										<div class="max-h-48 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
+											{#each diagnosticsData.missingTranslations as item}
+												<div class="flex items-start gap-2 text-xs">
+													<span class="font-mono text-muted-foreground">{item.key}:</span>
+													<span class="text-muted-foreground">{item.fallback}</span>
+												</div>
+											{/each}
+										</div>
+									</div>
+								{:else if diagnosticsData.keysCount > 0}
+									<div class="rounded-md border border-green-500/50 bg-green-50 dark:bg-green-900/20 p-3">
+										<p class="text-sm text-green-800 dark:text-green-200">
+											✓ All {diagnosticsData.keysCount} keys have translations for{' '}
+											{diagnosticsData.currentLocale}
+										</p>
+									</div>
+								{/if}
+
+								<div class="pt-2">
+									<Button variant="outline" size="sm" on:click={openMessagesJson}>
+										Open Messages JSON
+									</Button>
+								</div>
+							</div>
+						{:else}
+							<p class="text-sm text-muted-foreground">Unable to load diagnostics</p>
+						{/if}
+					</CardContent>
+				</Card>
+			</div>
+		{/if}
 	{/if}
 </PageBody>

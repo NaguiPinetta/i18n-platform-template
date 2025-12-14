@@ -9,6 +9,7 @@
 	import { page } from '$app/stores';
 	import { currentWorkspace } from '$lib/stores/workspace';
 	import { Download } from 'lucide-svelte';
+	import { t } from '$lib/stores';
 
 	$: supabaseConfigured = $page.data.supabaseConfigured;
 	$: hasWorkspace = !!$currentWorkspace;
@@ -20,7 +21,7 @@
 			const response = await fetch('/api/i18n/export.csv');
 			if (!response.ok) {
 				const error = await response.text();
-				alert('Export failed: ' + error);
+				alert(t('i18n.export.error', 'Export failed: ') + error);
 				return;
 			}
 
@@ -35,45 +36,65 @@
 			window.URL.revokeObjectURL(url);
 		} catch (error) {
 			console.error('Export error:', error);
-			alert('Failed to export CSV: ' + (error as Error).message);
+			alert(t('i18n.export.error', 'Failed to export CSV: ') + (error as Error).message);
 		}
 	}
 </script>
 
 <PageBody>
-	<PageHeader title="Export Translations" description="Download translation keys and values as CSV" />
+	<PageHeader
+		title={t('i18n.export.title', 'Export Translations')}
+		description={t('i18n.export.subtitle', 'Download translation keys and values as CSV')}
+	/>
 
 	{#if !supabaseConfigured}
 		<EmptyState
-			title="Supabase Not Configured"
-			description="Please configure Supabase environment variables to export translations."
+			title={t('errors.supabase_not_configured', 'Supabase Not Configured')}
+			description={t(
+				'errors.supabase_not_configured.description',
+				'Please configure Supabase environment variables to export translations.'
+			)}
 		/>
 	{:else if !hasWorkspace}
 		<EmptyState
-			title="No Workspace Selected"
-			description="Please select or create a workspace to export translations."
+			title={t('workspace.none_selected_title', 'No Workspace Selected')}
+			description={t(
+				'workspace.select_description',
+				'Please select or create a workspace to export translations.'
+			)}
 		/>
 	{:else}
 		<Card>
 			<CardHeader>
-				<h3 class="text-lg font-semibold">CSV Export</h3>
+				<h3 class="text-lg font-semibold">{t('i18n.export.csv_title', 'CSV Export')}</h3>
 			</CardHeader>
 			<CardContent>
 				<p class="text-sm text-muted-foreground mb-4">
-					Export all translation keys and their values to a CSV file. This file can be sent to
-					translation services like Omniglot for professional translation.
+					{t(
+						'i18n.export.description',
+						'Export all translation keys and their values to a CSV file. This file can be sent to translation services like Omniglot for professional translation.'
+					)}
 				</p>
 				<p class="text-sm text-muted-foreground mb-6">
-					The CSV file includes:
+					{t('i18n.export.includes_title', 'The CSV file includes:')}
 				</p>
 				<ul class="list-disc list-inside text-sm text-muted-foreground mb-6 space-y-1">
-					<li>All translation keys with metadata (module, type, screen, context, etc.)</li>
-					<li>All language columns with current translation values</li>
-					<li>Empty cells for missing translations</li>
+					<li>
+						{t(
+							'i18n.export.includes.keys',
+							'All translation keys with metadata (module, type, screen, context, etc.)'
+						)}
+					</li>
+					<li>
+						{t('i18n.export.includes.languages', 'All language columns with current translation values')}
+					</li>
+					<li>
+						{t('i18n.export.includes.empty', 'Empty cells for missing translations')}
+					</li>
 				</ul>
 				<Button on:click={handleExport} class="w-full sm:w-auto">
 					<Download class="mr-2 h-4 w-4" />
-					Download CSV
+					{t('i18n.export.download', 'Download CSV')}
 				</Button>
 			</CardContent>
 		</Card>

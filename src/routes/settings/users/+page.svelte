@@ -13,6 +13,7 @@
 	import { createClient } from '$lib/supabase/client';
 	import { onMount } from 'svelte';
 	import type { WorkspaceMember } from '$lib/stores/workspace';
+	import { t } from '$lib/stores';
 
 	const supabase = createClient();
 	let members: WorkspaceMember[] = [];
@@ -55,9 +56,14 @@
 </script>
 
 <PageBody>
-	<PageHeader title="Users" description="Manage workspace users and permissions">
+	<PageHeader
+		title={t('settings.users.title', 'Users')}
+		description={t('settings.users.subtitle', 'Manage workspace users and permissions')}
+	>
 		<svelte:fragment slot="actions">
-			<Button on:click={() => (showInviteDialog = true)}>Invite User</Button>
+			<Button on:click={() => (showInviteDialog = true)}>
+				{t('settings.users.invite', 'Invite User')}
+			</Button>
 		</svelte:fragment>
 	</PageHeader>
 
@@ -65,21 +71,25 @@
 		<svelte:fragment slot="search">
 			<input
 				type="text"
-				placeholder="Search users..."
+				placeholder={t('common.search', 'Search...')}
 				class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-sm"
 			/>
 		</svelte:fragment>
 	</DataToolbar>
 
 	{#if loading}
-		<div class="py-12 text-center text-sm text-muted-foreground">Loading members...</div>
+		<div class="py-12 text-center text-sm text-muted-foreground">
+			{t('common.loading', 'Loading...')}
+		</div>
 	{:else if members.length === 0}
 		<EmptyState
-			title="No members found"
-			description="Invite team members to collaborate on translations."
+			title={t('empty.no_data', 'No members found')}
+			description={t('settings.users.empty.description', 'Invite team members to collaborate on translations.')}
 		>
 			<svelte:fragment slot="actions">
-				<Button on:click={() => (showInviteDialog = true)}>Invite User</Button>
+				<Button on:click={() => (showInviteDialog = true)}>
+					{t('settings.users.invite', 'Invite User')}
+				</Button>
 			</svelte:fragment>
 		</EmptyState>
 	{:else}
@@ -89,9 +99,15 @@
 					<table class="w-full">
 						<thead>
 							<tr class="border-b">
-								<th class="px-6 py-3 text-left text-sm font-medium">Email</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Role</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Joined</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('settings.users.table.email', 'Email')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('settings.users.table.role', 'Role')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('settings.users.table.joined', 'Joined')}
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -120,13 +136,17 @@
 	{/if}
 
 	<Dialog bind:open={showInviteDialog}>
-		<DialogTitle>Invite User</DialogTitle>
+		<DialogTitle>{t('settings.users.invite', 'Invite User')}</DialogTitle>
 		<DialogDescription class="mb-4">
-			User invitation feature coming soon. This will allow you to invite team members to your
-			workspace.
+			{t(
+				'settings.users.invite.description',
+				'User invitation feature coming soon. This will allow you to invite team members to your workspace.'
+			)}
 		</DialogDescription>
 		<div class="flex justify-end">
-			<Button variant="outline" on:click={() => (showInviteDialog = false)}> Close </Button>
+			<Button variant="outline" on:click={() => (showInviteDialog = false)}>
+				{t('common.close', 'Close')}
+			</Button>
 		</div>
 	</Dialog>
 </PageBody>

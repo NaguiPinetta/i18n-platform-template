@@ -14,6 +14,8 @@
 	import { createClient } from '$lib/supabase/client';
 	import { onMount } from 'svelte';
 	import { missingKeys, clearRegistry } from '$lib/stores/i18n-registry';
+	import { t, highlightUntranslated } from '$lib/stores';
+	import TranslatedText from '$lib/components/TranslatedText.svelte';
 
 	const supabase = createClient();
 	let languagesCount = 0;
@@ -119,7 +121,7 @@
 		syncSuccess = '';
 
 		if (!canSyncKeys) {
-			syncError = 'Only workspace owners/admins can sync keys.';
+			syncError = t('errors.unauthorized', 'Only workspace owners/admins can sync keys.');
 			return;
 		}
 
@@ -153,9 +155,12 @@
 			const data = await res.json();
 			clearRegistry();
 			await loadStats();
-			syncSuccess = `Synced keys. Inserted: ${data.inserted_keys || 0}, Updated: ${data.updated_keys || 0}, EN filled: ${data.en_values_written || 0}.`;
+			syncSuccess = t(
+				'i18n.registry.sync_success',
+				`Synced keys. Inserted: ${data.inserted_keys || 0}, Updated: ${data.updated_keys || 0}, EN filled: ${data.en_values_written || 0}.`
+			);
 		} catch (err) {
-			syncError = err instanceof Error ? err.message : 'Failed to sync keys';
+			syncError = err instanceof Error ? err.message : t('errors.generic', 'Failed to sync keys');
 		} finally {
 			syncingKeys = false;
 		}
@@ -204,22 +209,30 @@
 
 <PageBody>
 	<PageHeader
-		title="i18n Management"
-		description="Manage translation keys, languages, and import/export workflows"
+		title={t('i18n.title', 'i18n Management')}
+		description={t('i18n.subtitle', 'Manage translation keys, languages, and import/export workflows')}
 	/>
 
 	{#if !supabaseConfigured}
 		<EmptyState
-			title="Supabase Not Configured"
-			description="Please configure Supabase environment variables to use i18n features."
+			title={t('errors.supabase_not_configured', 'Supabase Not Configured')}
+			description={t(
+				'errors.supabase_not_configured.description',
+				'Please configure Supabase environment variables to use i18n features.'
+			)}
 		/>
 	{:else if !hasWorkspace}
 		<EmptyState
-			title="No Workspace Selected"
-			description="Please select or create a workspace to manage translations."
+			title={t('workspace.none_selected_title', 'No Workspace Selected')}
+			description={t(
+				'workspace.select_description',
+				'Please select or create a workspace to manage translations.'
+			)}
 		>
 			<svelte:fragment slot="actions">
-				<Button on:click={() => goto('/dashboard')}>Go to Dashboard</Button>
+				<Button on:click={() => goto('/dashboard')}>
+					{t('common.go_to_dashboard', 'Go to Dashboard')}
+				</Button>
 			</svelte:fragment>
 		</EmptyState>
 	{:else if loading}
@@ -228,37 +241,69 @@
 		<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Languages</h3>
+					<TranslatedText
+						key="i18n.languages.title"
+						fallback="Languages"
+						tag="h3"
+						class="text-lg font-semibold"
+					/>
 				</CardHeader>
 				<CardContent>
 					<p class="text-2xl font-bold">{languagesCount}</p>
-					<p class="text-sm text-muted-foreground">Configured languages</p>
+					<TranslatedText
+						key="i18n.languages.configured"
+						fallback="Configured languages"
+						tag="p"
+						class="text-sm text-muted-foreground"
+					/>
 					<Button variant="outline" class="mt-4 w-full" on:click={() => goto('/settings/i18n/languages')}>
-						Manage Languages
+						<TranslatedText key="common.manage" fallback="Manage" />{' '}
+						<TranslatedText key="i18n.languages.title" fallback="Languages" />
 					</Button>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Translation Keys</h3>
+					<TranslatedText
+						key="i18n.keys.title"
+						fallback="Translation Keys"
+						tag="h3"
+						class="text-lg font-semibold"
+					/>
 				</CardHeader>
 				<CardContent>
 					<p class="text-2xl font-bold">{keysCount}</p>
-					<p class="text-sm text-muted-foreground">Total keys</p>
+					<TranslatedText
+						key="i18n.keys.total"
+						fallback="Total keys"
+						tag="p"
+						class="text-sm text-muted-foreground"
+					/>
 					<Button variant="outline" class="mt-4 w-full" on:click={() => goto('/settings/i18n/keys')}>
-						Manage Keys
+						<TranslatedText key="common.manage" fallback="Manage" />{' '}
+						<TranslatedText key="i18n.keys.title" fallback="Translation Keys" />
 					</Button>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Coverage</h3>
+					<TranslatedText
+						key="i18n.coverage"
+						fallback="Coverage"
+						tag="h3"
+						class="text-lg font-semibold"
+					/>
 				</CardHeader>
 				<CardContent>
 					<p class="text-2xl font-bold">{coverage}%</p>
-					<p class="text-sm text-muted-foreground">Translation coverage</p>
+					<TranslatedText
+						key="i18n.coverage.description"
+						fallback="Translation coverage"
+						tag="p"
+						class="text-sm text-muted-foreground"
+					/>
 				</CardContent>
 			</Card>
 		</div>
@@ -266,28 +311,44 @@
 		<div class="mt-6 grid gap-6 md:grid-cols-2">
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Export CSV</h3>
+					<TranslatedText
+						key="i18n.export.title"
+						fallback="Export CSV"
+						tag="h3"
+						class="text-lg font-semibold"
+					/>
 				</CardHeader>
 				<CardContent>
-					<p class="text-sm text-muted-foreground mb-4">
-						Export all translation keys and values to CSV for translation in Omniglot or other tools.
-					</p>
+					<TranslatedText
+						key="i18n.export.description"
+						fallback="Export all translation keys and values to CSV for translation in Omniglot or other tools."
+						tag="p"
+						class="text-sm text-muted-foreground mb-4"
+					/>
 					<Button variant="outline" class="w-full" on:click={() => goto('/settings/i18n/export')}>
-						Export Translations
+						<TranslatedText key="i18n.export.button" fallback="Export Translations" />
 					</Button>
 				</CardContent>
 			</Card>
 
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Import CSV</h3>
+					<TranslatedText
+						key="i18n.import.title"
+						fallback="Import CSV"
+						tag="h3"
+						class="text-lg font-semibold"
+					/>
 				</CardHeader>
 				<CardContent>
-					<p class="text-sm text-muted-foreground mb-4">
-						Import translated CSV files back into the system. Supports conflict resolution policies.
-					</p>
+					<TranslatedText
+						key="i18n.import.description"
+						fallback="Import translated CSV files back into the system. Supports conflict resolution policies."
+						tag="p"
+						class="text-sm text-muted-foreground mb-4"
+					/>
 					<Button variant="outline" class="w-full" on:click={() => goto('/settings/i18n/import')}>
-						Import Translations
+						<TranslatedText key="i18n.import.button" fallback="Import Translations" />
 					</Button>
 				</CardContent>
 			</Card>
@@ -296,18 +357,42 @@
 		<div class="mt-6">
 			<Card>
 				<CardHeader>
-					<h3 class="text-lg font-semibold">Key Registry</h3>
+					<div class="flex items-center justify-between">
+						<TranslatedText
+							key="i18n.registry.title"
+							fallback="Key Registry"
+							tag="h3"
+							class="text-lg font-semibold"
+						/>
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								bind:checked={$highlightUntranslated}
+								class="h-4 w-4 rounded border-gray-300"
+							/>
+							<span class="text-muted-foreground">
+								{t('i18n.highlight_missing', 'Highlight missing translations')}
+							</span>
+						</label>
+					</div>
 				</CardHeader>
 				<CardContent>
-					<p class="text-sm text-muted-foreground">
-						As you replace strings with <code class="rounded bg-muted px-1 py-0.5">t('key','English')</code>, missing
-						keys are collected locally so you can sync them into the workspace for export.
-					</p>
+					<TranslatedText
+						key="i18n.registry.description"
+						fallback="As you replace strings with t('key','English'), missing keys are collected locally so you can sync them into the workspace for export."
+						tag="p"
+						class="text-sm text-muted-foreground"
+					/>
 
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
 						<div>
 							<p class="text-2xl font-bold">{$missingKeys.size}</p>
-							<p class="text-sm text-muted-foreground">Keys collected locally</p>
+							<TranslatedText
+								key="i18n.registry.collected"
+								fallback="Keys collected locally"
+								tag="p"
+								class="text-sm text-muted-foreground"
+							/>
 						</div>
 						<div class="flex gap-2">
 							<Button
@@ -315,14 +400,21 @@
 								disabled={$missingKeys.size === 0}
 								on:click={downloadRegistryCsv}
 							>
-								Download registry CSV
+								<TranslatedText
+									key="i18n.registry.download_csv"
+									fallback="Download registry CSV"
+								/>
 							</Button>
 							<Button
 								disabled={!canSyncKeys || syncingKeys || $missingKeys.size === 0}
 								on:click={syncRegistryToWorkspace}
-								title={!canSyncKeys ? 'Only owners/admins can sync keys' : ''}
+								title={!canSyncKeys ? t('errors.unauthorized', 'Only owners/admins can sync keys') : ''}
 							>
-								{syncingKeys ? 'Syncing...' : 'Sync to Workspace'}
+								{#if syncingKeys}
+									<TranslatedText key="common.syncing" fallback="Syncing..." />
+								{:else}
+									<TranslatedText key="i18n.registry.sync" fallback="Sync to Workspace" />
+								{/if}
 							</Button>
 						</div>
 					</div>

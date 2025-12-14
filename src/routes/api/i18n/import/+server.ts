@@ -94,6 +94,7 @@ export const POST: RequestHandler = async (event) => {
 	const file = formData.get('file') as File;
 	const policy = (formData.get('policy') as string) || 'fill-missing';
 	const isPreview = formData.get('preview') === 'true';
+	const columnMappingJson = formData.get('columnMapping') as string | null;
 
 	if (!file) {
 		return text('No file provided', { status: 400 });
@@ -101,6 +102,34 @@ export const POST: RequestHandler = async (event) => {
 
 	if (policy !== 'overwrite' && policy !== 'fill-missing') {
 		return text('Invalid conflict policy', { status: 400 });
+	}
+
+	// Parse column mapping if provided
+	let columnMapping: {
+		key: number | null;
+		module: number | null;
+		type: number | null;
+		screen: number | null;
+		context: number | null;
+		screenshot_ref: number | null;
+		max_chars: number | null;
+		languages: Record<string, number>;
+	} | null = null;
+
+	if (columnMappingJson) {
+		try {
+			const parsed = JSON.parse(columnMappingJson);
+			// Validate mapping
+			if (parsed.key === null || parsed.key === undefined) {
+				return text('Key column mapping is required', { status: 400 });
+			}
+			if (!parsed.languages || Object.keys(parsed.languages).length === 0) {
+				return text('At least one language column must be mapped', { status: 400 });
+			}
+			columnMapping = parsed;
+		} catch (error) {
+			return text('Invalid column mapping JSON', { status: 400 });
+		}
 	}
 
 	try {
@@ -114,14 +143,22 @@ export const POST: RequestHandler = async (event) => {
 		const headerRow = rows[0];
 		const dataRows = rows.slice(1);
 
-		// Expected header: key, module, type, screen, context, screenshot_ref, max_chars, ...language codes
-		const expectedColumns = ['key', 'module', 'type', 'screen', 'context', 'screenshot_ref', 'max_chars'];
-		const languageColumns = headerRow.slice(expectedColumns.length);
+		let languageColumns: string[] = [];
 
-		// Validate header
-		for (let i = 0; i < expectedColumns.length; i++) {
-			if (headerRow[i]?.toLowerCase() !== expectedColumns[i]) {
-				return text(`Invalid CSV header. Expected "${expectedColumns[i]}" at column ${i + 1}`, { status: 400 });
+		// If column mapping is provided, use it; otherwise use fixed format (backward compatibility)
+		if (columnMapping) {
+			// Extract language codes from mapping
+			languageColumns = Object.keys(columnMapping.languages);
+		} else {
+			// Legacy fixed format: key, module, type, screen, context, screenshot_ref, max_chars, ...language codes
+			const expectedColumns = ['key', 'module', 'type', 'screen', 'context', 'screenshot_ref', 'max_chars'];
+			languageColumns = headerRow.slice(expectedColumns.length);
+
+			// Validate header for legacy format
+			for (let i = 0; i < expectedColumns.length; i++) {
+				if (headerRow[i]?.toLowerCase() !== expectedColumns[i]) {
+					return text(`Invalid CSV header. Expected "${expectedColumns[i]}" at column ${i + 1}`, { status: 400 });
+				}
 			}
 		}
 
@@ -204,34 +241,78 @@ export const POST: RequestHandler = async (event) => {
 		const keysToUpdate: Array<{ id: string; data: any }> = [];
 		const translationsToUpsert: any[] = [];
 
+		// Helper function to get value from row using mapping
+		function getValue(row: string[], columnIndex: number | null): string | null {
+			if (columnIndex === null || columnIndex === undefined) return null;
+			if (columnIndex < 0 || columnIndex >= row.length) return null;
+			const value = row[columnIndex]?.trim();
+			return value || null;
+		}
+
 		// Process data rows
 		for (let i = 0; i < dataRows.length; i++) {
 			const row = dataRows[i];
 			const rowNum = i + 2; // +2 because header is row 1, and we're 0-indexed
 
-			// Validate required fields
-			if (row.length < 3 || !row[0] || !row[1] || !row[2]) {
-				result.rows_skipped++;
-				result.skipped_reasons.push({
-					row: rowNum,
-					reason: 'Missing required fields (key, module, or type)'
-				});
-				continue;
+			// Extract values using mapping or fixed positions
+			let keyValue: string;
+			let moduleValue: string | null = null;
+			let typeValue: string | null = null;
+			let screenValue: string | null = null;
+			let contextValue: string | null = null;
+			let screenshotRefValue: string | null = null;
+			let maxCharsValue: number | null = null;
+
+			if (columnMapping) {
+				// Use column mapping
+				const keyVal = getValue(row, columnMapping.key);
+				if (!keyVal) {
+					result.rows_skipped++;
+					result.skipped_reasons.push({
+						row: rowNum,
+						reason: 'Key field is empty or missing'
+					});
+					continue;
+				}
+				keyValue = keyVal;
+				moduleValue = getValue(row, columnMapping.module);
+				typeValue = getValue(row, columnMapping.type);
+				screenValue = getValue(row, columnMapping.screen);
+				contextValue = getValue(row, columnMapping.context);
+				screenshotRefValue = getValue(row, columnMapping.screenshot_ref);
+				const maxCharsStr = getValue(row, columnMapping.max_chars);
+				if (maxCharsStr) {
+					const parsed = parseInt(maxCharsStr);
+					if (!isNaN(parsed)) maxCharsValue = parsed;
+				}
+			} else {
+				// Legacy fixed format
+				if (row.length < 3 || !row[0] || !row[1] || !row[2]) {
+					result.rows_skipped++;
+					result.skipped_reasons.push({
+						row: rowNum,
+						reason: 'Missing required fields (key, module, or type)'
+					});
+					continue;
+				}
+				keyValue = row[0].trim();
+				moduleValue = row[1].trim() || null;
+				typeValue = row[2].trim() || null;
+				screenValue = row[3]?.trim() || null;
+				contextValue = row[4]?.trim() || null;
+				screenshotRefValue = row[5]?.trim() || null;
+				const maxCharsStr = row[6]?.trim();
+				if (maxCharsStr) {
+					const parsed = parseInt(maxCharsStr);
+					if (!isNaN(parsed)) maxCharsValue = parsed;
+				}
 			}
 
-			const keyValue = row[0].trim();
-			const moduleValue = row[1].trim();
-			const typeValue = row[2].trim();
-			const screenValue = row[3]?.trim() || null;
-			const contextValue = row[4]?.trim() || null;
-			const screenshotRefValue = row[5]?.trim() || null;
-			const maxCharsValue = row[6]?.trim() ? parseInt(row[6]) : null;
-
-			if (!keyValue || !moduleValue || !typeValue) {
+			if (!keyValue) {
 				result.rows_skipped++;
 				result.skipped_reasons.push({
 					row: rowNum,
-					reason: 'Empty required fields'
+					reason: 'Key field is empty'
 				});
 				continue;
 			}
@@ -240,15 +321,18 @@ export const POST: RequestHandler = async (event) => {
 			const existingKeyId = existingKeyMap.get(keyValue);
 			const keyData: any = {
 				workspace_id: validatedWorkspaceId,
-				key: keyValue,
-				module: moduleValue,
-				type: typeValue
+				key: keyValue
 			};
 
+			// Set required fields (module and type are NOT NULL in DB, so use defaults if not mapped)
+			keyData.module = moduleValue || 'common';
+			keyData.type = typeValue || 'text';
+			
+			// Set optional fields
 			if (screenValue) keyData.screen = screenValue;
 			if (contextValue) keyData.context = contextValue;
 			if (screenshotRefValue) keyData.screenshot_ref = screenshotRefValue;
-			if (maxCharsValue && !isNaN(maxCharsValue)) keyData.max_chars = maxCharsValue;
+			if (maxCharsValue !== null && !isNaN(maxCharsValue)) keyData.max_chars = maxCharsValue;
 
 			if (existingKeyId) {
 				keysToUpdate.push({ id: existingKeyId, data: keyData });
@@ -259,35 +343,63 @@ export const POST: RequestHandler = async (event) => {
 			}
 
 			// Process translations
-			for (let langIdx = 0; langIdx < languageColumns.length; langIdx++) {
-				const langCode = languageColumns[langIdx];
-				if (!langCode) continue;
+			if (columnMapping) {
+				// Use mapping for language columns
+				for (const [langCode, columnIndex] of Object.entries(columnMapping.languages)) {
+					const langId = languageMap.get(langCode);
+					if (!langId) continue;
 
-				const langId = languageMap.get(langCode);
-				if (!langId) continue;
+					const translationValue = getValue(row, columnIndex);
+					if (!translationValue) continue; // Skip empty translations
 
-				const translationValue = row[7 + langIdx]?.trim() || '';
-				if (!translationValue) continue; // Skip empty translations
-
-				// For fill-missing policy, check if translation already exists
-				if (policy === 'fill-missing') {
-					if (existingKeyId) {
-						const existingTrans = existingTranslations.get(existingKeyId);
-						if (existingTrans && existingTrans.get(langId)) {
-							continue; // Skip if translation already exists
+					// For fill-missing policy, check if translation already exists
+					if (policy === 'fill-missing') {
+						if (existingKeyId) {
+							const existingTrans = existingTranslations.get(existingKeyId);
+							if (existingTrans && existingTrans.get(langId)) {
+								continue; // Skip if translation already exists
+							}
 						}
 					}
-				}
 
-				// We'll need the key_id, but it might not exist yet
-				// Store translation with key reference for later
-				translationsToUpsert.push({
-					key_value: keyValue,
-					language_id: langId,
-					value: translationValue,
-					workspace_id: validatedWorkspaceId
-				});
-				result.translations_to_upsert++;
+					translationsToUpsert.push({
+						key_value: keyValue,
+						language_id: langId,
+						value: translationValue,
+						workspace_id: validatedWorkspaceId
+					});
+					result.translations_to_upsert++;
+				}
+			} else {
+				// Legacy fixed format
+				for (let langIdx = 0; langIdx < languageColumns.length; langIdx++) {
+					const langCode = languageColumns[langIdx];
+					if (!langCode) continue;
+
+					const langId = languageMap.get(langCode);
+					if (!langId) continue;
+
+					const translationValue = row[7 + langIdx]?.trim() || '';
+					if (!translationValue) continue; // Skip empty translations
+
+					// For fill-missing policy, check if translation already exists
+					if (policy === 'fill-missing') {
+						if (existingKeyId) {
+							const existingTrans = existingTranslations.get(existingKeyId);
+							if (existingTrans && existingTrans.get(langId)) {
+								continue; // Skip if translation already exists
+							}
+						}
+					}
+
+					translationsToUpsert.push({
+						key_value: keyValue,
+						language_id: langId,
+						value: translationValue,
+						workspace_id: validatedWorkspaceId
+					});
+					result.translations_to_upsert++;
+				}
 			}
 		}
 

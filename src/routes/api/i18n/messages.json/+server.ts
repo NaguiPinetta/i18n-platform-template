@@ -11,17 +11,20 @@ export const GET: RequestHandler = async (event) => {
 			{
 				status: result.status,
 				headers: {
-					'Cache-Control': 'private, max-age=60'
+					'Cache-Control': 'no-store, must-revalidate'
 				}
 			}
 		);
 	}
 
+	// Get locale from cookie to ensure we're returning the right locale
+	const locale = event.cookies.get('locale') || 'en';
+
 	return json(
-		{ messages: result.messages, locale: result.locale },
+		{ messages: result.messages, locale: result.locale || locale },
 		{
 			headers: {
-				'Cache-Control': 'private, max-age=60'
+				'Cache-Control': 'no-store, must-revalidate'
 			}
 		}
 	);

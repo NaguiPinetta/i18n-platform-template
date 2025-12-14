@@ -65,7 +65,32 @@
 	];
 
 	function isActive(href: string): boolean {
-		return $page.url.pathname === href || $page.url.pathname.startsWith(href + '/');
+		const pathname = $page.url.pathname;
+		
+		// Exact match
+		if (pathname === href) return true;
+		
+		// For prefix matches, only highlight if this is the most specific match
+		if (pathname.startsWith(href + '/')) {
+			// Get all nav item hrefs
+			const allHrefs = navGroups.flatMap(group => group.items.map(item => item.href));
+			
+			// Find the most specific matching href (longest match)
+			const matchingHrefs = allHrefs.filter(h => 
+				pathname === h || pathname.startsWith(h + '/')
+			);
+			
+			if (matchingHrefs.length === 0) return false;
+			
+			// Sort by length (longest first) to find most specific
+			matchingHrefs.sort((a, b) => b.length - a.length);
+			const mostSpecific = matchingHrefs[0];
+			
+			// Only highlight if this href is the most specific match
+			return href === mostSpecific;
+		}
+		
+		return false;
 	}
 </script>
 

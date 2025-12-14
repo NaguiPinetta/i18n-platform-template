@@ -5,28 +5,40 @@
 	import CardContent from '$lib/ui/CardContent.svelte';
 	import CardHeader from '$lib/ui/CardHeader.svelte';
 	import Button from '$lib/ui/Button.svelte';
+	import { t } from '$lib/stores';
 </script>
 
 <PageBody>
-	<PageHeader title="Integrations" description="Connect external services and tools" />
+	<PageHeader
+		title={t('settings.integrations.title', 'Integrations')}
+		description={t('settings.integrations.subtitle', 'Connect external services and tools')}
+	/>
 
 	<div class="grid gap-6 md:grid-cols-2">
 		<Card>
 			<CardHeader>
-				<h3 class="text-lg font-semibold">Translation Services</h3>
+				<h3 class="text-lg font-semibold">
+					{t('settings.integrations.translation_services', 'Translation Services')}
+				</h3>
 			</CardHeader>
 			<CardContent>
-				<p class="mb-4 text-sm text-muted-foreground">Connect to translation APIs</p>
-				<Button variant="outline">Configure</Button>
+				<p class="mb-4 text-sm text-muted-foreground">
+					{t('settings.integrations.translation_services.description', 'Connect to translation APIs')}
+				</p>
+				<Button variant="outline">{t('common.configure', 'Configure')}</Button>
 			</CardContent>
 		</Card>
 		<Card>
 			<CardHeader>
-				<h3 class="text-lg font-semibold">Version Control</h3>
+				<h3 class="text-lg font-semibold">
+					{t('settings.integrations.version_control', 'Version Control')}
+				</h3>
 			</CardHeader>
 			<CardContent>
-				<p class="mb-4 text-sm text-muted-foreground">Sync with Git repositories</p>
-				<Button variant="outline">Configure</Button>
+				<p class="mb-4 text-sm text-muted-foreground">
+					{t('settings.integrations.version_control.description', 'Sync with Git repositories')}
+				</p>
+				<Button variant="outline">{t('common.configure', 'Configure')}</Button>
 			</CardContent>
 		</Card>
 	</div>

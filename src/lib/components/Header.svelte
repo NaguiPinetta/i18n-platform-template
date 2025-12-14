@@ -13,7 +13,7 @@
 	import { cn } from '$lib/utils';
 	import { Globe, ChevronDown, LogOut, User, Sun, Moon, Monitor } from 'lucide-svelte';
 	import Button from '$lib/ui/Button.svelte';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import type { Session } from '@supabase/supabase-js';
 
 	export let session: Session | null = null;
@@ -53,9 +53,19 @@
 			return;
 		}
 
+		// Update locale first
 		locale.set(code);
 		setRuntimeLocale(code);
-		await loadMessages();
+		
+		// Force reload messages with new locale (bypasses cache)
+		// This will clear localStorage cache and fetch fresh messages
+		await loadMessages(code);
+		
+		// Small delay to ensure state update propagates
+		await new Promise(resolve => setTimeout(resolve, 50));
+		
+		// Invalidate all routes to force re-render with new translations
+		await invalidateAll();
 	}
 
 	async function handleLogout() {

@@ -15,6 +15,7 @@
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { Plus, Trash2, Edit } from 'lucide-svelte';
+	import { t } from '$lib/stores';
 
 	interface Key {
 		id: string;
@@ -143,7 +144,7 @@
 
 			if (error) {
 				console.error('Error creating key:', error);
-				alert('Failed to create key: ' + error.message);
+				alert(t('i18n.keys.create_error', 'Failed to create key: ') + error.message);
 			} else {
 				showAddDialog = false;
 				loadKeys();
@@ -153,7 +154,7 @@
 
 			if (error) {
 				console.error('Error updating key:', error);
-				alert('Failed to update key: ' + error.message);
+				alert(t('i18n.keys.update_error', 'Failed to update key: ') + error.message);
 			} else {
 				showEditDialog = false;
 				selectedKey = null;
@@ -169,7 +170,7 @@
 
 		if (error) {
 			console.error('Error deleting key:', error);
-			alert('Failed to delete key: ' + error.message);
+			alert(t('i18n.keys.delete_error', 'Failed to delete key: ') + error.message);
 		} else {
 			showDeleteDialog = false;
 			selectedKey = null;
@@ -179,34 +180,43 @@
 </script>
 
 <PageBody>
-	<PageHeader title="Translation Keys" description="Manage translation keys and metadata">
+	<PageHeader
+		title={t('i18n.keys.title', 'Translation Keys')}
+		description={t('i18n.keys.subtitle', 'Manage translation keys and metadata')}
+	>
 		<svelte:fragment slot="actions">
 			<Button on:click={openAddDialog} disabled={!supabaseConfigured || !hasWorkspace}>
 				<Plus class="mr-2 h-4 w-4" />
-				Add Key
+				{t('i18n.keys.add', 'Add Key')}
 			</Button>
 		</svelte:fragment>
 	</PageHeader>
 
 	{#if !supabaseConfigured}
 		<EmptyState
-			title="Supabase Not Configured"
-			description="Please configure Supabase environment variables to manage translation keys."
+			title={t('errors.supabase_not_configured', 'Supabase Not Configured')}
+			description={t(
+				'errors.supabase_not_configured.description',
+				'Please configure Supabase environment variables to manage translation keys.'
+			)}
 		/>
 	{:else if !hasWorkspace}
 		<EmptyState
-			title="No Workspace Selected"
-			description="Please select or create a workspace to manage translation keys."
+			title={t('workspace.none_selected_title', 'No Workspace Selected')}
+			description={t(
+				'workspace.select_description',
+				'Please select or create a workspace to manage translation keys.'
+			)}
 		/>
 	{:else if loading}
 		<LoadingState />
 	{:else if keys.length === 0}
 		<EmptyState
-			title="No translation keys"
-			description="Add your first translation key to get started."
+			title={t('empty.no_data', 'No translation keys')}
+			description={t('i18n.keys.empty.description', 'Add your first translation key to get started.')}
 		>
 			<svelte:fragment slot="actions">
-				<Button on:click={openAddDialog}>Add Key</Button>
+				<Button on:click={openAddDialog}>{t('i18n.keys.add', 'Add Key')}</Button>
 			</svelte:fragment>
 		</EmptyState>
 	{:else}
@@ -215,7 +225,7 @@
 				<input
 					type="text"
 					bind:value={searchQuery}
-					placeholder="Search keys, modules, screens..."
+					placeholder={t('i18n.keys.search_placeholder', 'Search keys, modules, screens...')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:max-w-sm"
 				/>
 			</svelte:fragment>
@@ -227,13 +237,27 @@
 					<table class="w-full">
 						<thead>
 							<tr class="border-b">
-								<th class="px-6 py-3 text-left text-sm font-medium">Key</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Module</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Type</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Screen</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Screenshot Ref</th>
-								<th class="px-6 py-3 text-left text-sm font-medium">Context</th>
-								<th class="px-6 py-3 text-right text-sm font-medium">Actions</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.key', 'Key')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.module', 'Module')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.type', 'Type')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.screen', 'Screen')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.screenshot_ref', 'Screenshot Ref')}
+								</th>
+								<th class="px-6 py-3 text-left text-sm font-medium">
+									{t('i18n.table.context', 'Context')}
+								</th>
+								<th class="px-6 py-3 text-right text-sm font-medium">
+									{t('i18n.table.actions', 'Actions')}
+								</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -280,182 +304,214 @@
 
 	<!-- Add/Edit Dialog -->
 	<Dialog bind:open={showAddDialog}>
-		<DialogTitle>Add Translation Key</DialogTitle>
+		<DialogTitle>{t('i18n.keys.add', 'Add Translation Key')}</DialogTitle>
 		<DialogDescription class="mb-4">
-			Enter the key identifier and metadata. Key, Module, and Type are required.
+			{t('i18n.keys.dialog.description', 'Enter the key identifier and metadata. Key, Module, and Type are required.')}
 		</DialogDescription>
 		<div class="space-y-4 max-h-[60vh] overflow-y-auto">
 			<div>
-				<label for="key" class="mb-2 block text-sm font-medium">Key *</label>
+				<label for="key" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.key_label', 'Key')} *
+				</label>
 				<input
 					id="key"
 					type="text"
 					bind:value={formKey}
-					placeholder="button.save"
+					placeholder={t('i18n.keys.dialog.key_placeholder', 'button.save')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="module" class="mb-2 block text-sm font-medium">Module *</label>
+				<label for="module" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.module_label', 'Module')} *
+				</label>
 				<input
 					id="module"
 					type="text"
 					bind:value={formModule}
-					placeholder="common"
+					placeholder={t('i18n.keys.dialog.module_placeholder', 'common')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="type" class="mb-2 block text-sm font-medium">Type *</label>
+				<label for="type" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.type_label', 'Type')} *
+				</label>
 				<input
 					id="type"
 					type="text"
 					bind:value={formType}
-					placeholder="button"
+					placeholder={t('i18n.keys.dialog.type_placeholder', 'button')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="screen" class="mb-2 block text-sm font-medium">Screen</label>
+				<label for="screen" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.screen_label', 'Screen')}
+				</label>
 				<input
 					id="screen"
 					type="text"
 					bind:value={formScreen}
-					placeholder="settings"
+					placeholder={t('i18n.keys.dialog.screen_placeholder', 'settings')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="context" class="mb-2 block text-sm font-medium">Context</label>
+				<label for="context" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.context_label', 'Context')}
+				</label>
 				<textarea
 					id="context"
 					bind:value={formContext}
-					placeholder="Additional context for translators"
+					placeholder={t('i18n.keys.dialog.context_placeholder', 'Additional context for translators')}
 					rows="3"
 					class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="screenshot-ref" class="mb-2 block text-sm font-medium">Screenshot Ref</label>
+				<label for="screenshot-ref" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.screenshot_ref_label', 'Screenshot Ref')}
+				</label>
 				<input
 					id="screenshot-ref"
 					type="text"
 					bind:value={formScreenshotRef}
-					placeholder="screenshot-url"
+					placeholder={t('i18n.keys.dialog.screenshot_ref_placeholder', 'screenshot-url')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="max-chars" class="mb-2 block text-sm font-medium">Max Characters</label>
+				<label for="max-chars" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.max_chars_label', 'Max Characters')}
+				</label>
 				<input
 					id="max-chars"
 					type="number"
 					bind:value={formMaxChars}
-					placeholder="100"
+					placeholder={t('i18n.keys.dialog.max_chars_placeholder', '100')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div class="flex justify-end gap-2">
-				<Button variant="outline" on:click={() => (showAddDialog = false)}>Cancel</Button>
+				<Button variant="outline" on:click={() => (showAddDialog = false)}>
+					{t('common.cancel', 'Cancel')}
+				</Button>
 				<Button
 					on:click={handleSave}
 					disabled={!formKey.trim() || !formModule.trim() || !formType.trim()}
 				>
-					Save
+					{t('common.save', 'Save')}
 				</Button>
 			</div>
 		</div>
 	</Dialog>
 
 	<Dialog bind:open={showEditDialog}>
-		<DialogTitle>Edit Translation Key</DialogTitle>
+		<DialogTitle>{t('i18n.keys.edit', 'Edit Translation Key')}</DialogTitle>
 		<DialogDescription class="mb-4">
-			Update the key metadata. Key, Module, and Type are required.
+			{t('i18n.keys.dialog.edit_description', 'Update the key metadata. Key, Module, and Type are required.')}
 		</DialogDescription>
 		<div class="space-y-4 max-h-[60vh] overflow-y-auto">
 			<div>
-				<label for="edit-key" class="mb-2 block text-sm font-medium">Key *</label>
+				<label for="edit-key" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.key_label', 'Key')} *
+				</label>
 				<input
 					id="edit-key"
 					type="text"
 					bind:value={formKey}
-					placeholder="button.save"
+					placeholder={t('i18n.keys.dialog.key_placeholder', 'button.save')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-module" class="mb-2 block text-sm font-medium">Module *</label>
+				<label for="edit-module" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.module_label', 'Module')} *
+				</label>
 				<input
 					id="edit-module"
 					type="text"
 					bind:value={formModule}
-					placeholder="common"
+					placeholder={t('i18n.keys.dialog.module_placeholder', 'common')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-type" class="mb-2 block text-sm font-medium">Type *</label>
+				<label for="edit-type" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.type_label', 'Type')} *
+				</label>
 				<input
 					id="edit-type"
 					type="text"
 					bind:value={formType}
-					placeholder="button"
+					placeholder={t('i18n.keys.dialog.type_placeholder', 'button')}
 					required
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-screen" class="mb-2 block text-sm font-medium">Screen</label>
+				<label for="edit-screen" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.screen_label', 'Screen')}
+				</label>
 				<input
 					id="edit-screen"
 					type="text"
 					bind:value={formScreen}
-					placeholder="settings"
+					placeholder={t('i18n.keys.dialog.screen_placeholder', 'settings')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-context" class="mb-2 block text-sm font-medium">Context</label>
+				<label for="edit-context" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.context_label', 'Context')}
+				</label>
 				<textarea
 					id="edit-context"
 					bind:value={formContext}
-					placeholder="Additional context for translators"
+					placeholder={t('i18n.keys.dialog.context_placeholder', 'Additional context for translators')}
 					rows="3"
 					class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-screenshot-ref" class="mb-2 block text-sm font-medium">Screenshot Ref</label>
+				<label for="edit-screenshot-ref" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.screenshot_ref_label', 'Screenshot Ref')}
+				</label>
 				<input
 					id="edit-screenshot-ref"
 					type="text"
 					bind:value={formScreenshotRef}
-					placeholder="screenshot-url"
+					placeholder={t('i18n.keys.dialog.screenshot_ref_placeholder', 'screenshot-url')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div>
-				<label for="edit-max-chars" class="mb-2 block text-sm font-medium">Max Characters</label>
+				<label for="edit-max-chars" class="mb-2 block text-sm font-medium">
+					{t('i18n.keys.dialog.max_chars_label', 'Max Characters')}
+				</label>
 				<input
 					id="edit-max-chars"
 					type="number"
 					bind:value={formMaxChars}
-					placeholder="100"
+					placeholder={t('i18n.keys.dialog.max_chars_placeholder', '100')}
 					class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 				/>
 			</div>
 			<div class="flex justify-end gap-2">
-				<Button variant="outline" on:click={() => (showEditDialog = false)}>Cancel</Button>
+				<Button variant="outline" on:click={() => (showEditDialog = false)}>
+					{t('common.cancel', 'Cancel')}
+				</Button>
 				<Button
 					on:click={handleSave}
 					disabled={!formKey.trim() || !formModule.trim() || !formType.trim()}
 				>
-					Save
+					{t('common.save', 'Save')}
 				</Button>
 			</div>
 		</div>
@@ -463,14 +519,17 @@
 
 	<!-- Delete Confirmation Dialog -->
 	<Dialog bind:open={showDeleteDialog}>
-		<DialogTitle>Delete Translation Key</DialogTitle>
+		<DialogTitle>{t('i18n.keys.delete', 'Delete Translation Key')}</DialogTitle>
 		<DialogDescription class="mb-4">
-			Are you sure you want to delete the key "{selectedKey?.key}"? This will also delete all
-			translations for this key. This action cannot be undone.
+			{t('i18n.keys.delete.confirmation_prefix', 'Are you sure you want to delete the key')} "{selectedKey?.key || ''}"? {t('i18n.keys.delete.confirmation_suffix', 'This will also delete all translations for this key. This action cannot be undone.')}
 		</DialogDescription>
 		<div class="flex justify-end gap-2">
-			<Button variant="outline" on:click={() => (showDeleteDialog = false)}>Cancel</Button>
-			<Button variant="destructive" on:click={handleDelete}>Delete</Button>
+			<Button variant="outline" on:click={() => (showDeleteDialog = false)}>
+				{t('common.cancel', 'Cancel')}
+			</Button>
+			<Button variant="destructive" on:click={handleDelete}>
+				{t('common.delete', 'Delete')}
+			</Button>
 		</div>
 	</Dialog>
 </PageBody>

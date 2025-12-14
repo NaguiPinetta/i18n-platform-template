@@ -18,7 +18,13 @@ export const POST: RequestHandler = async (event) => {
 		return json({ error: 'Unauthorized' }, { status: 401 });
 	}
 
-	const { workspaceId } = await event.request.json();
+	let workspaceId: string;
+	try {
+		const body = await event.request.json();
+		workspaceId = body.workspaceId;
+	} catch (error) {
+		return json({ error: 'Invalid request body' }, { status: 400 });
+	}
 
 	if (!workspaceId || typeof workspaceId !== 'string') {
 		return json({ error: 'Invalid workspace ID' }, { status: 400 });

@@ -277,7 +277,19 @@
 
 			if (!res.ok) {
 				const errorData = await res.json().catch(() => ({}));
-				const errorMsg = errorData.error || errorData.message || `Sync failed (${res.status})`;
+				let errorMsg = errorData.error || errorData.message || `Sync failed (${res.status})`;
+				
+				// Provide friendly error messages for common status codes
+				if (res.status === 401) {
+					errorMsg = t('errors.unauthorized', 'You must be logged in to sync keys. Please log in and try again.');
+				} else if (res.status === 403) {
+					errorMsg = t('errors.forbidden', 'You do not have permission to sync keys. Only workspace owners and admins can sync keys.');
+				} else if (res.status === 400) {
+					errorMsg = t('errors.bad_request', 'Invalid request. Please check your key data and try again.');
+				} else if (res.status === 503) {
+					errorMsg = t('errors.supabase_not_configured', 'Supabase is not configured. Please configure your environment variables.');
+				}
+				
 				throw new Error(errorMsg);
 			}
 

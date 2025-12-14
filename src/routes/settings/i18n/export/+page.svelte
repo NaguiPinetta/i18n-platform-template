@@ -40,8 +40,21 @@
 			
 			const response = await fetch(url);
 			if (!response.ok) {
-				const error = await response.text();
-				alert(t('i18n.export.error', 'Export failed: ') + error);
+				const errorText = await response.text();
+				let errorMessage = errorText;
+				
+				// Provide friendly error messages for common status codes
+				if (response.status === 401) {
+					errorMessage = t('errors.unauthorized', 'You must be logged in to export translations. Please log in and try again.');
+				} else if (response.status === 403) {
+					errorMessage = t('errors.forbidden', 'You do not have permission to export translations for this workspace.');
+				} else if (response.status === 400) {
+					errorMessage = t('errors.bad_request', 'Invalid request. Please ensure a workspace is selected.');
+				} else if (response.status === 503) {
+					errorMessage = t('errors.supabase_not_configured', 'Supabase is not configured. Please configure your environment variables.');
+				}
+				
+				alert(t('i18n.export.error', 'Export failed: ') + errorMessage);
 				return;
 			}
 
